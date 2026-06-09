@@ -649,12 +649,8 @@ class ReportGenerator:
         lines.append("")
         lines.append("")
         
-        report_year = self.config.reporting_year
-        period_text = f"{report_year}年度"
-        if start_date or end_date:
-            s = start_date.strftime("%Y年%m月%d日") if start_date else f"{report_year}年01月01日"
-            e = end_date.strftime("%Y年%m月%d日") if end_date else f"{report_year}年12月31日"
-            period_text = f"{s} 至 {e}"
+        # 从参数或数据中获取期间文本
+        period_text, report_year = self._get_period_text_zh(start_date, end_date, summary)
         
         lines.append(f"  报告类型：温室气体排放盘查报告")
         lines.append(f"  报告期间：{period_text}")
@@ -686,12 +682,15 @@ class ReportGenerator:
         lines.append("-" * 50)
         lines.append("")
         
-        report_year = self.config.reporting_year
-        s = start_date.strftime("%Y年%m月%d日") if start_date else f"{report_year}年01月01日"
-        e = end_date.strftime("%Y年%m月%d日") if end_date else f"{report_year}年12月31日"
+        period_text, report_year = self._get_period_text_zh(start_date, end_date, summary)
         
         lines.append("1. 时间边界")
-        lines.append(f"   本次盘查的时间边界为 {s} 至 {e}。")
+        if start_date and end_date:
+            lines.append(f"   本次盘查的时间边界为 {period_text}。")
+        else:
+            s = start_date.strftime("%Y年%m月%d日") if start_date else f"{report_year}年01月01日"
+            e = end_date.strftime("%Y年%m月%d日") if end_date else f"{report_year}年12月31日"
+            lines.append(f"   本次盘查的时间边界为 {s} 至 {e}。")
         lines.append("")
         
         lines.append("2. 组织边界")
@@ -1063,6 +1062,52 @@ class ReportGenerator:
         lines.append("=" * 70)
         
         return lines
+    
+    def _get_period_text_zh(self, start_date: Optional[date], 
+                            end_date: Optional[date], 
+                            summary: EmissionSummary) -> tuple:
+        """获取中文期间文本和报告年度"""
+        # 从数据中推断年度
+        report_year = self.config.reporting_year
+        if summary.records:
+            report_year = summary.records[0].period.year
+        
+        if start_date and end_date:
+            period_text = f"{start_date.strftime('%Y年%m月%d日')} 至 {end_date.strftime('%Y年%m月%d日')}"
+            report_year = start_date.year
+        elif start_date:
+            period_text = f"{start_date.strftime('%Y年%m月%d日')} 至 {report_year}年12月31日"
+            report_year = start_date.year
+        elif end_date:
+            period_text = f"{report_year}年01月01日 至 {end_date.strftime('%Y年%m月%d日')}"
+            report_year = end_date.year
+        else:
+            period_text = f"{report_year}年度"
+        
+        return period_text, report_year
+    
+    def _get_period_text_en(self, start_date: Optional[date], 
+                            end_date: Optional[date], 
+                            summary: EmissionSummary) -> tuple:
+        """获取英文期间文本和报告年度"""
+        # 从数据中推断年度
+        report_year = self.config.reporting_year
+        if summary.records:
+            report_year = summary.records[0].period.year
+        
+        if start_date and end_date:
+            period_text = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+            report_year = start_date.year
+        elif start_date:
+            period_text = f"{start_date.strftime('%Y-%m-%d')} to {report_year}-12-31"
+            report_year = start_date.year
+        elif end_date:
+            period_text = f"{report_year}-01-01 to {end_date.strftime('%Y-%m-%d')}"
+            report_year = end_date.year
+        else:
+            period_text = f"Year {report_year}"
+        
+        return period_text, report_year
     
     def _get_categories_by_scope(self, summary: EmissionSummary, scope: Scope) -> list:
         """获取指定范围的排放源类别"""

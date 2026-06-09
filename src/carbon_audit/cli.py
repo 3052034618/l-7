@@ -672,6 +672,30 @@ def calc(year, org_unit, export, unit):
     click.echo(f"共处理 {len(records)} 条记录")
     click.echo("")
     
+    # 因子使用概览
+    used_factors = {}
+    for r in records:
+        if r.factor_key:
+            key = r.factor_key
+            if key not in used_factors:
+                info = calculator.get_factor_info(key)
+                used_factors[key] = {
+                    "value": info["value"],
+                    "source": info["source"] or "标准因子库",
+                    "version": info["version"] or "default",
+                    "is_custom": info.get("is_custom", False),
+                }
+    
+    if used_factors:
+        click.echo("使用的排放因子：")
+        click.echo("-" * 50)
+        for fkey in sorted(used_factors.keys()):
+            fi = used_factors[fkey]
+            custom_mark = " *" if fi["is_custom"] else ""
+            click.echo(f"  {fkey:<28s} {fi['value']:>10.4f} "
+                      f"[{fi['source']} / {fi['version']}]{custom_mark}")
+        click.echo("")
+    
     # 导出
     if export:
         data_store.export_to_excel(export)
@@ -923,7 +947,9 @@ def factors():
               default="all", help="按范围筛选 (默认: all)")
 @click.option("--include-custom/--no-custom", default=True,
               help="是否显示自定义因子 (默认: 显示)")
-def factors_list(scope, include_custom):
+@click.option("--with-meta/--no-meta", default=True,
+              help="是否显示自定义因子元数据（来源、版本、生效日期、备注）")
+def factors_list(scope, include_custom, with_meta):
     """列出所有排放因子"""
     project_dir = require_project()
     config = ProjectConfig.load(project_dir)
@@ -944,14 +970,45 @@ def factors_list(scope, include_custom):
         for k, v in SCOPE3_FACTORS.items():
             all_factors[k] = {"value": v, "scope": "scope3", "custom": False}
     
-    # 标记自定义因子
+    # 标记自定义因子（支持 CustomFactorConfig
     custom_factors = config.custom_factors or {}
-    for key, value in custom_factors.items():
+    for key, cf_config in custom_factors.items():
+        # 获取自定义因子值
+        if hasattr(cf_config, 'value'):
+            cf_value = cf_config.value
+            cf_source = cf_config.source
+            cf_version = cf_config.version
+            cf_effective_date = cf_config.effective_date
+            cf_notes = cf_config.notes
+        elif isinstance(cf_config, dict):
+            cf_value = cf_config.get('value', cf_config)
+            cf_source = cf_config.get('source')
+            cf_version = cf_config.get('version')
+            cf_effective_date = cf_config.get('effective_date')
+            cf_notes = cf_config.get('notes')
+        else:
+            cf_value = cf_config
+            cf_source = None
+            cf_version = None
+            cf_effective_date = None
+            cf_notes = None
+        
         if key in all_factors:
             all_factors[key]["custom"] = True
-            all_factors[key]["custom_value"] = value
+            all_factors[key]["custom_value"] = cf_value
+            all_factors[key]["custom_source"] = cf_source
+            all_factors[key]["custom_version"] = cf_version
+            all_factors[key]["custom_effective_date"] = cf_effective_date
+            all_factors[key]["custom_notes"] = cf_notes
         else:
-            all_factors[key] = {"value": value, "scope": "custom", "custom": True}
+            all_factors[key] = {
+                "value": cf_value, "scope": "custom", "custom": True,
+                "custom_value": cf_value,
+                "custom_source": cf_source,
+                "custom_version": cf_version,
+                "custom_effective_date": cf_effective_date,
+                "custom_notes": cf_notes,
+            }
     
     click.echo("=" * 70)
     click.echo(f"  排放因子列表 - {config.name}")
@@ -991,16 +1048,46 @@ def factors_list(scope, include_custom):
             else:
                 val_str = f"{current_val:.4f}".rstrip('0').rstrip('.')
             
-            click.echo(f"  {key:<35s} {val_str:>10s}{custom_mark}")
+            click.echo(f"  {key:<30s} {val_str:>10s}{custom_mark}")
+            
+            # 显示自定义因子元数据
+            if info.get("custom") and include_custom and with_meta:
+                meta_lines = []
+                if info.get("custom_source"):
+                    meta_lines.append(f"来源: {info['custom_source']}")
+                if info.get("custom_version"):
+                    meta_lines.append(f"版本: {info['custom_version']}")
+                if info.get("custom_effective_date"):
+                    meta_lines.append(f"生效: {info['custom_effective_date']}")
+                if info.get("custom_notes"):
+                    meta_lines.append(f"备注: {info['custom_notes']}")
+                
+                if meta_lines:
+                    click.echo(f"    {' | '.join(meta_lines)}")
         
         click.echo("")
     
     # 当前电力区域
     click.echo("-" * 50)
     elec_key = f"electricity_{config.electricity_region}"
-    elec_factor = all_factors.get(elec_key, {}).get("value", 0)
+    elec_factor_info = all_factors.get(elec_key, {})
+    elec_val = elec_factor_info.get("value", 0)
+    if elec_factor_info.get("custom") and include_custom:
+        elec_val = elec_factor_info.get("custom_value", elec_val)
+    
     click.echo(f"当前电力区域：{config.electricity_region}")
-    click.echo(f"电力排放因子：{elec_factor} kgCO2e/kWh")
+    click.echo(f"电力排放因子：{elec_val} kgCO2e/kWh")
+    
+    # 显示电力因子元数据
+    if elec_factor_info.get("custom") and include_custom and with_meta:
+        meta_parts = []
+        if elec_factor_info.get("custom_source"):
+            meta_parts.append(f"来源: {elec_factor_info['custom_source']}")
+        if elec_factor_info.get("custom_version"):
+            meta_parts.append(f"版本: {elec_factor_info['custom_version']}")
+        if meta_parts:
+            click.echo(f"         {' | '.join(meta_parts)}")
+    
     click.echo("")
     
     if include_custom and custom_factors:
@@ -1257,13 +1344,15 @@ def factors_refrigerants():
               help="显示条数 (默认: 50)")
 @click.option("--output", "-O", type=click.Path(), help="导出日志到文件")
 @click.option("--format", "-f", "output_format",
-              type=click.Choice(["text", "json"]),
-              default="text", help="输出格式 (默认: text)")
+              type=click.Choice(["text", "json", "review"]),
+              default="text", help="输出格式 (默认: text，review: 交付复盘格式)")
 def audit_log(action, start_date, end_date, limit, output, output_format):
     """查看操作审计日志
     
     查看数据导入、计算、报告生成、因子变更等操作历史，
     支持按日期和操作类型过滤。
+    
+    使用 --format review 生成交付复盘格式，清晰展示每一步用了什么数据和因子。
     """
     project_dir = require_project()
     data_store = DataStore(project_dir)
@@ -1285,6 +1374,8 @@ def audit_log(action, start_date, end_date, limit, output, output_format):
     if output_format == "json":
         import json
         output_text = json.dumps(logs, ensure_ascii=False, indent=2)
+    elif output_format == "review":
+        output_text = _format_audit_log_review(logs)
     else:
         output_text = _format_audit_log_text(logs)
     
@@ -1330,6 +1421,168 @@ def _format_audit_log_text(logs: list) -> str:
         
         if i < len(logs) - 1:
             lines.append("")
+    
+    return "\n".join(lines)
+
+
+def _format_audit_log_review(logs: list) -> str:
+    """格式化审计日志为交付复盘格式
+    
+    按时间顺序展示，清晰呈现每一步操作的关键数据，
+    方便交付前复盘客户数据处理过程。
+    """
+    if not logs:
+        return "暂无审计日志记录"
+    
+    lines = []
+    lines.append("=" * 78)
+    lines.append("  碳盘查项目交付复盘记录")
+    lines.append("=" * 78)
+    lines.append("")
+    lines.append(f"  记录总数：{len(logs)} 条")
+    lines.append(f"  时间范围：{logs[-1]['timestamp']} ~ {logs[0]['timestamp']}")
+    lines.append("")
+    
+    # 操作类型统计
+    action_stats = {}
+    for log in logs:
+        action = log["action"]
+        action_stats[action] = action_stats.get(action, 0) + 1
+    
+    lines.append("  操作类型统计：")
+    action_labels = {
+        "import": "数据导入",
+        "calc": "排放计算",
+        "report": "报告生成",
+        "factor_change": "因子变更",
+        "check": "数据检查",
+        "config_change": "配置变更",
+    }
+    for action, count in sorted(action_stats.items()):
+        label = action_labels.get(action, action)
+        lines.append(f"    - {label}：{count} 次")
+    lines.append("")
+    lines.append("-" * 78)
+    lines.append("")
+    
+    # 按时间倒序展示详细记录（最新的在前面）
+    for i, log in enumerate(logs):
+        action = log["action"]
+        details = log.get("details", {})
+        
+        # 操作标题
+        action_label = action_labels.get(action, action)
+        icon_map = {
+            "import": "📥",
+            "calc": "🧮",
+            "report": "📄",
+            "factor_change": "🔧",
+            "check": "🔍",
+            "config_change": "⚙️",
+        }
+        icon = icon_map.get(action, "📌")
+        
+        lines.append(f"  {icon} [{i+1}] {action_label}")
+        lines.append(f"      时间：{log['timestamp']}")
+        lines.append(f"      说明：{log['description']}")
+        
+        # 按操作类型展示关键详情
+        if action == "import":
+            category = details.get("category", "-")
+            file = details.get("file", "-")
+            records = details.get("records", "-")
+            errors = details.get("errors", "0")
+            org_unit = details.get("org_unit", "-")
+            
+            lines.append(f"      ┌─────────────────────────────────────────┐")
+            lines.append(f"      │ 能源类别：{category:<28s} │")
+            lines.append(f"      │ 导入文件：{os.path.basename(file) if file else '-':<28s} │")
+            lines.append(f"      │ 组织单元：{org_unit:<28s} │")
+            lines.append(f"      │ 成功记录：{records:<28s} 条 │")
+            lines.append(f"      │ 错误记录：{errors:<28s} 条 │")
+            lines.append(f"      └─────────────────────────────────────────┘")
+        
+        elif action == "calc":
+            year = details.get("year", "-")
+            records = details.get("records", "-")
+            total = details.get("total_kg", "-")
+            elec_region = details.get("electricity_region", "-")
+            
+            lines.append(f"      ┌─────────────────────────────────────────┐")
+            lines.append(f"      │ 计算年度：{year:<28s} 年 │")
+            lines.append(f"      │ 记录数量：{records:<28s} 条 │")
+            lines.append(f"      │ 总排放量：{total:<28s} kgCO2e │")
+            lines.append(f"      │ 电力区域：{elec_region:<28s} │")
+            lines.append(f"      └─────────────────────────────────────────┘")
+        
+        elif action == "report":
+            year = details.get("year", "-")
+            language = details.get("language", "-")
+            unit = details.get("unit", "-")
+            org = details.get("org_unit", "all")
+            output_file = details.get("output_file", "-")
+            is_full = details.get("is_full", "False")
+            report_type = "完整版" if is_full == "True" else "摘要版"
+            
+            lines.append(f"      ┌─────────────────────────────────────────┐")
+            lines.append(f"      │ 报告年度：{year:<28s} 年 │")
+            lines.append(f"      │ 报告类型：{report_type:<28s} │")
+            lines.append(f"      │ 报告语言：{language:<28s} │")
+            lines.append(f"      │ 报告单位：{unit:<28s} │")
+            lines.append(f"      │ 组织单元：{org:<28s} │")
+            lines.append(f"      │ 输出文件：{output_file:<28s} │")
+            lines.append(f"      └─────────────────────────────────────────┘")
+        
+        elif action == "factor_change":
+            change_type = details.get("change_type", "-")
+            factor_key = details.get("factor_key", "-")
+            
+            lines.append(f"      ┌─────────────────────────────────────────┐")
+            lines.append(f"      │ 变更类型：{change_type:<28s} │")
+            lines.append(f"      │ 因子名称：{factor_key:<28s} │")
+            
+            if "old_value" in details and "new_value" in details:
+                lines.append(f"      │ 变更前值：{details['old_value']:<28s} │")
+                lines.append(f"      │ 变更后值：{details['new_value']:<28s} │")
+            
+            if details.get("source"):
+                lines.append(f"      │ 因子来源：{details['source']:<28s} │")
+            if details.get("version"):
+                lines.append(f"      │ 因子版本：{details['version']:<28s} │")
+            if details.get("effective_date"):
+                lines.append(f"      │ 生效日期：{details['effective_date']:<28s} │")
+            
+            lines.append(f"      └─────────────────────────────────────────┘")
+        
+        elif action == "check":
+            year = details.get("year", "-")
+            missing = details.get("missing_count", "-")
+            warnings = details.get("warning_count", "-")
+            
+            lines.append(f"      ┌─────────────────────────────────────────┐")
+            lines.append(f"      │ 检查年度：{year:<28s} 年 │")
+            lines.append(f"      │ 缺失项数：{missing:<28s} 项 │")
+            lines.append(f"      │ 质量警告：{warnings:<28s} 条 │")
+            lines.append(f"      └─────────────────────────────────────────┘")
+        
+        else:
+            # 其他操作类型，显示所有详情
+            if details:
+                detail_lines = []
+                for k, v in details.items():
+                    detail_lines.append(f"        {k}: {v}")
+                lines.append("      详情：")
+                lines.extend(detail_lines)
+        
+        if i < len(logs) - 1:
+            lines.append("")
+            lines.append("  · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·")
+            lines.append("")
+    
+    lines.append("")
+    lines.append("=" * 78)
+    lines.append("  交付复盘记录 - 生成完毕")
+    lines.append("=" * 78)
     
     return "\n".join(lines)
 

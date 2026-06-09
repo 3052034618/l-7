@@ -121,6 +121,7 @@ class DataStore:
                 "子类别": r.subcategory or "",
                 "排放量(kgCO2e)": round(r.emission_kg, 4),
                 "排放因子": r.emission_factor,
+                "因子key": r.factor_key or "",
                 "描述": r.description,
                 "源文件": r.source_file,
                 "行号": r.line_number,

@@ -127,6 +127,9 @@ class ReportGenerator:
         """生成中文报告"""
         lines = []
         
+        # 从参数或数据中获取报告年度
+        _, report_year = self._get_period_text_zh(start_date, end_date, summary)
+        
         # 标题
         lines.append("=" * 60)
         lines.append(f"  {self.config.name} - 温室气体排放盘查摘要")
@@ -136,7 +139,7 @@ class ReportGenerator:
         # 基本信息
         lines.append("一、基本信息")
         lines.append("-" * 40)
-        lines.append(f"  报告年度：{self.config.reporting_year}年")
+        lines.append(f"  报告年度：{report_year}年")
         if self.config.base_year:
             lines.append(f"  基准年度：{self.config.base_year}年")
         if org_unit:
@@ -146,12 +149,12 @@ class ReportGenerator:
             if start_date:
                 period += start_date.strftime("%Y年%m月%d日")
             else:
-                period += f"{self.config.reporting_year}年01月01日"
+                period += f"{report_year}年01月01日"
             period += " 至 "
             if end_date:
                 period += end_date.strftime("%Y年%m月%d日")
             else:
-                period += f"{self.config.reporting_year}年12月31日"
+                period += f"{report_year}年12月31日"
             lines.append(f"  统计范围：{period}")
         lines.append(f"  报告单位：{unit}")
         lines.append(f"  电力因子：{self.config.electricity_region} 区域")
@@ -241,6 +244,11 @@ class ReportGenerator:
         lines.append("-" * 40)
         
         missing_data, warnings = self.checker.check_all()
+        # 按时间范围过滤
+        if start_date:
+            missing_data = [m for m in missing_data if m.period >= start_date]
+        if end_date:
+            missing_data = [m for m in missing_data if m.period <= end_date]
         # 按组织单元过滤
         if org_unit:
             missing_data = [m for m in missing_data if m.org_unit == org_unit]
@@ -278,6 +286,9 @@ class ReportGenerator:
         """生成英文报告"""
         lines = []
         
+        # 从参数或数据中获取报告年度
+        _, report_year = self._get_period_text_en(start_date, end_date, summary)
+        
         # Title
         lines.append("=" * 60)
         lines.append(f"  {self.config.name} - GHG Emissions Audit Summary")
@@ -287,7 +298,7 @@ class ReportGenerator:
         # Basic Info
         lines.append("1. Basic Information")
         lines.append("-" * 40)
-        lines.append(f"  Reporting Year: {self.config.reporting_year}")
+        lines.append(f"  Reporting Year: {report_year}")
         if self.config.base_year:
             lines.append(f"  Base Year: {self.config.base_year}")
         if org_unit:
@@ -297,12 +308,12 @@ class ReportGenerator:
             if start_date:
                 period += start_date.strftime("%Y-%m-%d")
             else:
-                period += f"{self.config.reporting_year}-01-01"
+                period += f"{report_year}-01-01"
             period += " to "
             if end_date:
                 period += end_date.strftime("%Y-%m-%d")
             else:
-                period += f"{self.config.reporting_year}-12-31"
+                period += f"{report_year}-12-31"
             lines.append(f"  Period: {period}")
         lines.append(f"  Unit: {unit}")
         lines.append(f"  Electricity Factor: {self.config.electricity_region} region")
@@ -391,6 +402,12 @@ class ReportGenerator:
         lines.append("-" * 40)
         
         missing_data, warnings = self.checker.check_all()
+        # 按时间范围过滤
+        if start_date:
+            missing_data = [m for m in missing_data if m.period >= start_date]
+        if end_date:
+            missing_data = [m for m in missing_data if m.period <= end_date]
+        # 按组织单元过滤
         if org_unit:
             missing_data = [m for m in missing_data if m.org_unit == org_unit]
             warnings = [w for w in warnings if org_unit in w]
@@ -1128,10 +1145,68 @@ class ReportGenerator:
                                        org_unit: Optional[str],
                                        start_date: Optional[date],
                                        end_date: Optional[date]) -> str:
-        """生成英文完整版报告（简化版）"""
+        """生成英文完整版报告"""
         lines = []
         
-        # 封面
+        # ===== 封面 =====
+        lines.extend(self._full_cover_en(summary, org_unit, start_date, end_date))
+        lines.append("")
+        lines.append("\\newpage")
+        lines.append("")
+        
+        # ===== 一、盘查边界说明 =====
+        lines.extend(self._full_boundary_en(summary, org_unit, start_date, end_date))
+        lines.append("")
+        
+        # ===== 二、核算方法学 =====
+        lines.extend(self._full_methodology_en(summary))
+        lines.append("")
+        
+        # ===== 三、排放总量 =====
+        lines.extend(self._full_total_en(summary, unit))
+        lines.append("")
+        
+        # ===== 四、范围一明细表 =====
+        lines.extend(self._full_scope_detail_en(summary, records, Scope.SCOPE1, unit))
+        lines.append("")
+        
+        # ===== 五、范围二明细表 =====
+        lines.extend(self._full_scope_detail_en(summary, records, Scope.SCOPE2, unit))
+        lines.append("")
+        
+        # ===== 六、范围三明细表 =====
+        lines.extend(self._full_scope_detail_en(summary, records, Scope.SCOPE3, unit))
+        lines.append("")
+        
+        # ===== 七、月度趋势分析 =====
+        lines.extend(self._full_monthly_trend_en(summary, unit))
+        lines.append("")
+        
+        # ===== 八、组织单元分布 =====
+        if not org_unit:
+            lines.extend(self._full_org_unit_en(summary, unit))
+            lines.append("")
+        
+        # ===== 附录：数据质量说明 =====
+        lines.extend(self._full_quality_appendix_en(summary, org_unit, start_date, end_date))
+        lines.append("")
+        
+        # ===== 附录：排放因子清单 =====
+        lines.extend(self._full_factor_list_en(summary))
+        lines.append("")
+        
+        # ===== 页脚 =====
+        lines.extend(self._full_footer_en())
+        
+        return "\n".join(lines)
+    
+    def _full_cover_en(self, summary: EmissionSummary, 
+                       org_unit: Optional[str],
+                       start_date: Optional[date],
+                       end_date: Optional[date]) -> list:
+        """封面 - 英文"""
+        lines = []
+        
         lines.append("=" * 70)
         lines.append("")
         lines.append(f"         {self.config.name}")
@@ -1140,90 +1215,417 @@ class ReportGenerator:
         lines.append("")
         lines.append("=" * 70)
         lines.append("")
+        lines.append("")
         
-        report_year = self.config.reporting_year
-        period_text = f"Year {report_year}"
-        if start_date or end_date:
-            s = start_date.strftime("%Y-%m-%d") if start_date else f"{report_year}-01-01"
-            e = end_date.strftime("%Y-%m-%d") if end_date else f"{report_year}-12-31"
-            period_text = f"{s} to {e}"
+        period_text, report_year = self._get_period_text_en(start_date, end_date, summary)
         
+        lines.append(f"  Report Type: Greenhouse Gas Emissions Audit Report")
         lines.append(f"  Report Period: {period_text}")
         if org_unit:
             lines.append(f"  Organizational Unit: {org_unit}")
         lines.append(f"  Unit: {self.unit}")
-        lines.append(f"  Version: V1.0")
+        lines.append("")
+        lines.append("")
+        lines.append("")
+        lines.append("  Prepared by: ________________________")
+        lines.append("")
+        lines.append("  Date: ________________________")
+        lines.append("")
+        lines.append("  Version: V1.0")
+        lines.append("")
         lines.append("")
         lines.append("=" * 70)
+        
+        return lines
+    
+    def _full_boundary_en(self, summary: EmissionSummary,
+                           org_unit: Optional[str],
+                           start_date: Optional[date],
+                           end_date: Optional[date]) -> list:
+        """盘查边界说明 - 英文"""
+        lines = []
+        
+        lines.append("1. Inventory Boundary")
+        lines.append("-" * 50)
         lines.append("")
         
-        # 排放总量
+        period_text, report_year = self._get_period_text_en(start_date, end_date, summary)
+        
+        lines.append("1.1 Temporal Boundary")
+        if start_date and end_date:
+            lines.append(f"   The temporal boundary is {period_text}.")
+        else:
+            s = start_date.strftime("%Y-%m-%d") if start_date else f"{report_year}-01-01"
+            e = end_date.strftime("%Y-%m-%d") if end_date else f"{report_year}-12-31"
+            lines.append(f"   The temporal boundary is {s} to {e}.")
+        lines.append("")
+        
+        lines.append("1.2 Organizational Boundary")
+        if org_unit:
+            lines.append(f"   The organizational boundary is: {org_unit}.")
+        else:
+            lines.append("   The organizational boundary covers all operating facilities of the reporting entity.")
+            orgs = list(summary.by_org_unit.keys()) if summary.by_org_unit else ["Headquarters"]
+            lines.append(f"   Organizational units: {', '.join(orgs)}")
+        lines.append("")
+        
+        lines.append("1.3 Emission Source Boundary")
+        lines.append("   This inventory includes the following emission source categories:")
+        lines.append("")
+        
+        scope1_cats = self._get_categories_by_scope(summary, Scope.SCOPE1)
+        scope2_cats = self._get_categories_by_scope(summary, Scope.SCOPE2)
+        scope3_cats = self._get_categories_by_scope(summary, Scope.SCOPE3)
+        
+        lines.append("   Scope 1 (Direct Emissions):")
+        for cat in scope1_cats:
+            try:
+                label = EnergyCategory(cat).label_en
+            except ValueError:
+                label = cat
+            lines.append(f"     - {label}")
+        lines.append("")
+        
+        lines.append("   Scope 2 (Indirect Emissions):")
+        for cat in scope2_cats:
+            try:
+                label = EnergyCategory(cat).label_en
+            except ValueError:
+                label = cat
+            lines.append(f"     - {label}")
+        lines.append("")
+        
+        lines.append("   Scope 3 (Other Indirect Emissions):")
+        for cat in scope3_cats:
+            try:
+                label = EnergyCategory(cat).label_en
+            except ValueError:
+                label = cat
+            lines.append(f"     - {label}")
+        
+        return lines
+    
+    def _full_methodology_en(self, summary: EmissionSummary) -> list:
+        """核算方法学 - 英文"""
+        lines = []
+        
+        lines.append("2. Methodology")
+        lines.append("-" * 50)
+        lines.append("")
+        
+        lines.append("2.1 Accounting Standard")
+        lines.append("   This inventory follows the GHG Protocol accounting framework,")
+        lines.append("   covering Scope 1 (direct), Scope 2 (indirect), and Scope 3 (other indirect) emissions.")
+        lines.append("")
+        
+        lines.append("2.2 Calculation Formula")
+        lines.append("   Emissions = Activity Data x Emission Factor")
+        lines.append("")
+        
+        lines.append("2.3 Emission Factor Sources")
+        lines.append(f"   - Electricity emission factor: {self.config.electricity_region} regional grid factor")
+        elec_info = self.calculator.get_factor_info(f"electricity_{self.config.electricity_region}")
+        lines.append(f"     Value: {elec_info['value']} kgCO2e/kWh")
+        if elec_info.get('source') and elec_info['source'] != '标准因子库':
+            lines.append(f"     Source: {elec_info['source']}")
+            if elec_info.get('version'):
+                lines.append(f"     Version: {elec_info['version']}")
+        else:
+            lines.append(f"     Source: Standard factor database")
+        lines.append("")
+        
+        lines.append("   - Other emission factors: Based on common emission factor databases")
+        lines.append("     (including custom factors, see Appendix for details)")
+        
+        custom_count = len(self.custom_factors) if hasattr(self, 'custom_factors') else 0
+        if custom_count > 0:
+            lines.append("")
+            lines.append(f"   {custom_count} custom emission factors are used in this project,")
+            lines.append("   see Appendix for details.")
+        
+        lines.append("")
+        
+        return lines
+    
+    def _full_total_en(self, summary: EmissionSummary, unit: str) -> list:
+        """排放总量 - 英文"""
+        lines = []
+        
         total = self._convert(summary.total)
         scope1 = self._convert(summary.scope1)
         scope2 = self._convert(summary.scope2)
         scope3 = self._convert(summary.scope3)
         total_for_pct = total if total > 0 else 1
         
-        lines.append("Total Emissions")
+        lines.append("3. Total Emissions")
         lines.append("-" * 50)
         lines.append("")
-        lines.append(f"  Total: {total:,.2f} {unit}")
+        
+        lines.append(f"  Total Emissions: {total:,.2f} {unit}")
+        lines.append("")
+        
         lines.append(f"  Scope 1 (Direct): {scope1:,.2f} {unit} ({scope1/total_for_pct*100:.1f}%)")
         lines.append(f"  Scope 2 (Indirect): {scope2:,.2f} {unit} ({scope2/total_for_pct*100:.1f}%)")
-        lines.append(f"  Scope 3 (Other): {scope3:,.2f} {unit} ({scope3/total_for_pct*100:.1f}%)")
+        lines.append(f"  Scope 3 (Other Indirect): {scope3:,.2f} {unit} ({scope3/total_for_pct*100:.1f}%)")
         lines.append("")
         
-        # 按类别
-        lines.append("Emissions by Category")
+        return lines
+    
+    def _full_scope_detail_en(self, summary: EmissionSummary, 
+                               records: list, scope: Scope, 
+                               unit: str) -> list:
+        """范围明细表 - 英文"""
+        lines = []
+        
+        section_map = {
+            "scope1": "4",
+            "scope2": "5",
+            "scope3": "6",
+        }
+        section_num = section_map.get(scope.value, "4")
+        
+        lines.append(f"{section_num}. {scope.label_en} Detail")
         lines.append("-" * 50)
         lines.append("")
         
-        sorted_cats = sorted(summary.by_category.items(), key=lambda x: x[1], reverse=True)
-        for cat_key, emission in sorted_cats:
+        # 按类别汇总
+        scope_categories = self._get_categories_by_scope(summary, scope)
+        
+        if not scope_categories:
+            lines.append("  (No data for this scope)")
+            return lines
+        
+        total_scope = self._convert(
+            summary.scope1 if scope == Scope.SCOPE1 else 
+            summary.scope2 if scope == Scope.SCOPE2 else summary.scope3
+        )
+        total_for_pct = total_scope if total_scope > 0 else 1
+        
+        # 类别汇总表
+        lines.append(f"  # | Emission Source | Emissions ({unit}) | Share")
+        lines.append("  " + "-" * 55)
+        
+        for i, cat_key in enumerate(sorted(scope_categories)):
             try:
                 cat_label = EnergyCategory(cat_key).label_en
             except ValueError:
                 cat_label = cat_key
+            
+            emission = summary.by_category.get(cat_key, 0)
             emission_conv = self._convert(emission)
-            lines.append(f"  {cat_label}: {emission_conv:,.2f} {unit} ({emission_conv/total_for_pct*100:.1f}%)")
+            
+            lines.append(
+                f"   {i+1:2d} | {cat_label:<20s} | {emission_conv:>18,.2f} | {emission_conv/total_for_pct*100:.1f}%"
+            )
         
         lines.append("")
         
-        # 月度趋势
-        if summary.by_month:
-            lines.append("Monthly Trend")
-            lines.append("-" * 50)
-            lines.append("")
+        # 月度明细
+        lines.append("  Monthly Distribution:")
+        lines.append("")
+        lines.append(f"  Month   | Emissions ({unit}) | MoM Change")
+        lines.append("  " + "-" * 50)
+        
+        # 按范围过滤记录，计算月度数据
+        scope_records = [r for r in records if r.category.scope == scope]
+        scope_by_month = {}
+        for r in scope_records:
+            month_key = r.period.strftime("%Y-%m")
+            scope_by_month[month_key] = scope_by_month.get(month_key, 0) + r.emission_kg
+        
+        sorted_months = sorted(scope_by_month.items())
+        prev_emission = None
+        
+        for month, emission in sorted_months:
+            emission_conv = self._convert(emission)
             
+            # 计算环比
+            change_text = "-"
+            if prev_emission and prev_emission > 0:
+                change = (emission - prev_emission) / prev_emission * 100
+                change_text = f"{change:+.1f}%"
+            
+            lines.append(f"  {month} | {emission_conv:>18,.2f} | {change_text}")
+            prev_emission = emission
+        
+        lines.append("")
+        
+        return lines
+    
+    def _full_monthly_trend_en(self, summary: EmissionSummary, unit: str) -> list:
+        """月度趋势分析 - 英文"""
+        lines = []
+        
+        lines.append("7. Monthly Emission Trend")
+        lines.append("-" * 50)
+        lines.append("")
+        
+        if summary.by_month:
             sorted_months = sorted(summary.by_month.items())
             max_emission = max(summary.by_month.values()) if summary.by_month else 1
             
             for month, emission in sorted_months:
                 emission_conv = self._convert(emission)
-                bar_len = int(emission / max_emission * 25) if max_emission > 0 else 0
+                bar_len = int(emission / max_emission * 30) if max_emission > 0 else 0
                 bar = "█" * bar_len
                 lines.append(f"  {month}  {bar} {emission_conv:,.2f} {unit}")
-            
-            lines.append("")
+        else:
+            lines.append("  (No monthly data)")
         
-        # 数据质量
-        lines.append("Data Quality Appendix")
+        lines.append("")
+        
+        return lines
+    
+    def _full_org_unit_en(self, summary: EmissionSummary, unit: str) -> list:
+        """组织单元分布 - 英文"""
+        lines = []
+        
+        lines.append("8. Emissions by Organizational Unit")
         lines.append("-" * 50)
         lines.append("")
         
+        total = self._convert(summary.total)
+        total_for_pct = total if total > 0 else 1
+        
+        if summary.by_org_unit:
+            sorted_orgs = sorted(summary.by_org_unit.items(), key=lambda x: x[1], reverse=True)
+            
+            lines.append(f"  # | Organizational Unit | Emissions ({unit}) | Share")
+            lines.append("  " + "-" * 55)
+            
+            for i, (ou, emission) in enumerate(sorted_orgs):
+                emission_conv = self._convert(emission)
+                lines.append(
+                    f"   {i+1:2d} | {ou:<20s} | {emission_conv:>18,.2f} | {emission_conv/total_for_pct*100:.1f}%"
+                )
+        else:
+            lines.append("  (No organizational unit data)")
+        
+        lines.append("")
+        
+        return lines
+    
+    def _full_quality_appendix_en(self, summary: EmissionSummary,
+                                    org_unit: Optional[str],
+                                    start_date: Optional[date],
+                                    end_date: Optional[date]) -> list:
+        """数据质量附录 - 英文"""
+        lines = []
+        
+        lines.append("Appendix A: Data Quality Notes")
+        lines.append("-" * 50)
+        lines.append("")
+        
+        # 检查数据质量
         missing_data, warnings = self.checker.check_all()
+        
+        # 按时间范围过滤
+        if start_date:
+            missing_data = [m for m in missing_data if m.period >= start_date]
+        if end_date:
+            missing_data = [m for m in missing_data if m.period <= end_date]
+        
+        # 按组织单元过滤
         if org_unit:
             missing_data = [m for m in missing_data if m.org_unit == org_unit]
             warnings = [w for w in warnings if org_unit in w]
         
+        lines.append("A.1 Data Completeness")
+        lines.append("")
         lines.append(f"  Missing data items: {len(missing_data)}")
-        lines.append(f"  Data warnings: {len(warnings)}")
+        if missing_data:
+            lines.append("")
+            lines.append("  Missing details:")
+            by_cat_org = {}
+            for m in missing_data:
+                key = f"{m.category.label_en} - {m.org_unit}"
+                if key not in by_cat_org:
+                    by_cat_org[key] = []
+                by_cat_org[key].append(m.period.strftime("%Y-%m"))
+            
+            for key, months in sorted(by_cat_org.items()):
+                lines.append(f"    - {key}: {', '.join(sorted(months))}")
+        
         lines.append("")
         
-        # 页脚
+        lines.append("A.2 Data Quality Warnings")
+        lines.append("")
+        lines.append(f"  Data warnings: {len(warnings)}")
+        if warnings:
+            lines.append("")
+            for i, w in enumerate(warnings[:20]):
+                lines.append(f"    {i+1}. {w}")
+            if len(warnings) > 20:
+                lines.append(f"    ... {len(warnings) - 20} more warnings")
+        
+        lines.append("")
+        
+        lines.append("A.3 Recommended Supplementary Materials")
+        lines.append("")
+        materials = self._get_supplementary_materials_en(missing_data, warnings)
+        for mat in materials:
+            lines.append(f"  {mat}")
+        
+        lines.append("")
+        
+        return lines
+    
+    def _full_factor_list_en(self, summary: EmissionSummary) -> list:
+        """排放因子清单 - 英文"""
+        lines = []
+        
+        lines.append("Appendix B: Emission Factor Inventory")
+        lines.append("-" * 50)
+        lines.append("")
+        
+        # 从实际记录中获取使用到的因子
+        used_factors = {}
+        for record in summary.records:
+            if record.factor_key:
+                key = record.factor_key
+                if key not in used_factors:
+                    used_factors[key] = {
+                        "factor_key": key,
+                        "value": record.emission_factor,
+                        "categories": set(),
+                    }
+                used_factors[key]["categories"].add(record.category.label_en)
+        
+        # 加上电力因子（如果没在记录中）
+        elec_key = f"electricity_{self.config.electricity_region}"
+        if elec_key not in used_factors:
+            info = self.calculator.get_factor_info(elec_key)
+            used_factors[elec_key] = {
+                "factor_key": elec_key,
+                "value": info["value"],
+                "categories": {"Electricity"},
+            }
+        
+        lines.append(f"  # | Factor Name | Value | Source | Version | Applicable Category")
+        lines.append("  " + "-" * 65)
+        
+        for i, (factor_key, factor_info) in enumerate(sorted(used_factors.items())):
+            info = self.calculator.get_factor_info(factor_key)
+            source = info["source"] or "Standard DB"
+            version = info["version"] or "default"
+            value = f"{info['value']:.4f}" if isinstance(info["value"], float) else str(info["value"])
+            categories = ", ".join(sorted(factor_info.get("categories", set())))
+            
+            lines.append(f"   {i+1:2d} | {factor_key:<25s} | {value:>10s} | {source:<12s} | {version:<8s} | {categories}")
+        
+        lines.append("")
+        
+        return lines
+    
+    def _full_footer_en(self) -> list:
+        """页脚 - 英文"""
+        lines = []
+        
         lines.append("=" * 70)
         lines.append(f"  Generated: {date.today().strftime('%Y-%m-%d')}")
+        lines.append(f"  Report Version: V1.0")
         lines.append(f"  Emission Factors: Standard database (with custom factors)")
+        lines.append(f"  Tool: carbon-audit GHG Inventory Tool")
         lines.append("=" * 70)
         
-        return "\n".join(lines)
+        return lines

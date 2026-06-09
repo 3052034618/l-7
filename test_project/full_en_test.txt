@@ -1,0 +1,256 @@
+======================================================================
+
+         示例企业碳盘查项目
+
+   Greenhouse Gas Emissions Audit Report
+
+======================================================================
+
+
+  Report Type: Greenhouse Gas Emissions Audit Report
+  Report Period: Year 2024
+  Unit: tCO2e
+
+
+
+  Prepared by: ________________________
+
+  Date: ________________________
+
+  Version: V1.0
+
+
+======================================================================
+
+\newpage
+
+1. Inventory Boundary
+--------------------------------------------------
+
+1.1 Temporal Boundary
+   The temporal boundary is 2024-01-01 to 2024-12-31.
+
+1.2 Organizational Boundary
+   The organizational boundary covers all operating facilities of the reporting entity.
+   Organizational units: 总部, 分部
+
+1.3 Emission Source Boundary
+   This inventory includes the following emission source categories:
+
+   Scope 1 (Direct Emissions):
+     - Natural Gas
+     - Gasoline
+     - Refrigerant
+
+   Scope 2 (Indirect Emissions):
+     - Electricity
+
+   Scope 3 (Other Indirect Emissions):
+     - Air Travel
+     - Rail Travel
+     - Hotel Stay
+
+2. Methodology
+--------------------------------------------------
+
+2.1 Accounting Standard
+   This inventory follows the GHG Protocol accounting framework,
+   covering Scope 1 (direct), Scope 2 (indirect), and Scope 3 (other indirect) emissions.
+
+2.2 Calculation Formula
+   Emissions = Activity Data x Emission Factor
+
+2.3 Emission Factor Sources
+   - Electricity emission factor: national regional grid factor
+     Value: 0.6 kgCO2e/kWh
+     Source: 中国区域电网排放因子 2024
+     Version: v2.0
+
+   - Other emission factors: Based on common emission factor databases
+     (including custom factors, see Appendix for details)
+
+
+3. Total Emissions
+--------------------------------------------------
+
+  Total Emissions: 298.91 tCO2e
+
+  Scope 1 (Direct): 171.76 tCO2e (57.5%)
+  Scope 2 (Indirect): 107.40 tCO2e (35.9%)
+  Scope 3 (Other Indirect): 19.75 tCO2e (6.6%)
+
+
+4. Scope 1 Detail
+--------------------------------------------------
+
+  # | Emission Source | Emissions (tCO2e) | Share
+  -------------------------------------------------------
+    1 | Gasoline             |              25.22 | 14.7%
+    2 | Natural Gas          |              74.81 | 43.6%
+    3 | Refrigerant          |              71.74 | 41.8%
+
+  Monthly Distribution:
+
+  Month   | Emissions (tCO2e) | MoM Change
+  --------------------------------------------------
+  2024-01 |              10.97 | -
+  2024-02 |              10.42 | -5.0%
+  2024-03 |              35.64 | +242.0%
+  2024-04 |               8.11 | -77.2%
+  2024-05 |               6.88 | -15.2%
+  2024-06 |              23.91 | +247.4%
+  2024-07 |               6.80 | -71.5%
+  2024-08 |               6.92 | +1.7%
+  2024-09 |              27.25 | +293.8%
+  2024-10 |               7.41 | -72.8%
+  2024-11 |               8.54 | +15.3%
+  2024-12 |              18.90 | +121.2%
+
+
+5. Scope 2 Detail
+--------------------------------------------------
+
+  # | Emission Source | Emissions (tCO2e) | Share
+  -------------------------------------------------------
+    1 | Electricity          |             107.40 | 100.0%
+
+  Monthly Distribution:
+
+  Month   | Emissions (tCO2e) | MoM Change
+  --------------------------------------------------
+  2024-01 |               7.50 | -
+  2024-02 |               7.08 | -5.6%
+  2024-03 |               7.92 | +11.9%
+  2024-04 |               8.70 | +9.8%
+  2024-05 |               9.48 | +9.0%
+  2024-06 |              10.32 | +8.9%
+  2024-07 |              11.10 | +7.6%
+  2024-08 |              11.40 | +2.7%
+  2024-09 |               9.90 | -13.2%
+  2024-10 |               8.52 | -13.9%
+  2024-11 |               7.80 | -8.5%
+  2024-12 |               7.68 | -1.5%
+
+
+6. Scope 3 Detail
+--------------------------------------------------
+
+  # | Emission Source | Emissions (tCO2e) | Share
+  -------------------------------------------------------
+    1 | Air Travel           |               9.47 | 48.0%
+    2 | Hotel Stay           |               9.88 | 50.0%
+    3 | Rail Travel          |               0.40 | 2.0%
+
+  Monthly Distribution:
+
+  Month   | Emissions (tCO2e) | MoM Change
+  --------------------------------------------------
+  2024-01 |               1.69 | -
+  2024-02 |               1.32 | -22.3%
+  2024-03 |               2.07 | +57.3%
+  2024-04 |               1.63 | -21.4%
+  2024-05 |               2.26 | +39.0%
+  2024-06 |               1.50 | -33.6%
+  2024-07 |               1.20 | -20.0%
+  2024-08 |               1.36 | +12.8%
+  2024-09 |               1.92 | +41.4%
+  2024-10 |               1.77 | -7.8%
+  2024-11 |               1.41 | -20.2%
+  2024-12 |               1.60 | +13.3%
+
+
+7. Monthly Emission Trend
+--------------------------------------------------
+
+  2024-01  █████████████ 20.16 tCO2e
+  2024-02  ████████████ 18.82 tCO2e
+  2024-03  ██████████████████████████████ 45.63 tCO2e
+  2024-04  ████████████ 18.44 tCO2e
+  2024-05  ████████████ 18.63 tCO2e
+  2024-06  ███████████████████████ 35.73 tCO2e
+  2024-07  ████████████ 19.11 tCO2e
+  2024-08  ████████████ 19.68 tCO2e
+  2024-09  █████████████████████████ 39.08 tCO2e
+  2024-10  ███████████ 17.70 tCO2e
+  2024-11  ███████████ 17.76 tCO2e
+  2024-12  ██████████████████ 28.18 tCO2e
+
+
+8. Emissions by Organizational Unit
+--------------------------------------------------
+
+  # | Organizational Unit | Emissions (tCO2e) | Share
+  -------------------------------------------------------
+    1 | 总部                   |             269.50 | 90.2%
+    2 | 分部                   |              29.41 | 9.8%
+
+
+Appendix A: Data Quality Notes
+--------------------------------------------------
+
+A.1 Data Completeness
+
+  Missing data items: 80
+
+  Missing details:
+    - Air Travel - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+    - Electricity - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+    - Gasoline - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+    - Hotel Stay - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+    - Rail Travel - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+    - Refrigerant - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+    - Refrigerant - 总部: 2024-01, 2024-02, 2024-04, 2024-05, 2024-07, 2024-08, 2024-10, 2024-11
+
+A.2 Data Quality Warnings
+
+  Data warnings: 1
+
+    1. 数据中存在未配置的组织单元: 分部
+
+A.3 Recommended Supplementary Materials
+
+  Missing data by month:
+      Air Travel - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Electricity - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Gasoline - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Hotel Stay - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Rail Travel - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Refrigerant - 总部: 2024-01, 2024-02, 2024-04, 2024-05, 2024-07, 2024-08, 2024-10, 2024-11
+      Refrigerant - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+  
+  Data to confirm:
+      - 数据中存在未配置的组织单元: 分部
+  
+  Recommended supporting documents:
+    1. Electricity bills / payment receipts
+    2. Gas bills / payment receipts
+    3. Fuel purchase invoices
+    4. Refrigerant purchase / recharge records
+    5. Travel expense reports
+    6. Organizational chart
+    7. Equipment list and usage records
+
+
+Appendix B: Emission Factor Inventory
+--------------------------------------------------
+
+  # | Factor Name | Value | Source | Version | Applicable Category
+  -----------------------------------------------------------------
+    1 | air_travel_domestic       |     0.1840 | 标准因子库        | default  | Air Travel
+    2 | air_travel_international  |     0.1690 | 标准因子库        | default  | Air Travel
+    3 | electricity_national      |     0.6000 | 中国区域电网排放因子 2024 | v2.0     | Electricity
+    4 | gasoline                  |     2.3610 | 标准因子库        | default  | Gasoline
+    5 | hotel_stay                |    18.5000 | 标准因子库        | default  | Hotel Stay
+    6 | natural_gas               |     2.1622 | 标准因子库        | default  | Natural Gas
+    7 | rail_travel               |     0.0280 | 标准因子库        | default  | Rail Travel
+    8 | refrigerant_r134a         |       1430 | 标准因子库        | default  | Refrigerant
+    9 | refrigerant_r22           |       1700 | 标准因子库        | default  | Refrigerant
+   10 | refrigerant_r410a         |       2088 | 标准因子库        | default  | Refrigerant
+
+
+======================================================================
+  Generated: 2026-06-10
+  Report Version: V1.0
+  Emission Factors: Standard database (with custom factors)
+  Tool: carbon-audit GHG Inventory Tool
+======================================================================

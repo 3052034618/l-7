@@ -147,5 +147,89 @@
       "is_full": "True"
     },
     "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:40:59",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：en，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "en",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "full_en_test.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:43:14",
+    "action": "calc",
+    "description": "计算 2024 年排放量，共 88 条记录，总排放 298910.30 kgCO2e",
+    "details": {
+      "year": "2024",
+      "records": "88",
+      "total_kg": "298910.30",
+      "electricity_region": "national"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:46:31",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：en，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "en",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "test_full_en.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:46:31",
+    "action": "report",
+    "description": "生成 2024 年报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "test_summary_period.txt",
+      "is_full": "False"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:46:33",
+    "action": "calc",
+    "description": "计算 2024 年排放量，共 88 条记录，总排放 298910.30 kgCO2e",
+    "details": {
+      "year": "2024",
+      "records": "88",
+      "total_kg": "298910.30",
+      "electricity_region": "national"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:47:27",
+    "action": "report",
+    "description": "生成 2024 年报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "test_summary_q2.txt",
+      "is_full": "False"
+    },
+    "user": null
   }
 ]

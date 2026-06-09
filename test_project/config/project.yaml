@@ -1,0 +1,13 @@
+base_year: 2023
+custom_factors: {}
+description: ''
+electricity_region: national
+language: zh
+name: 示例企业碳盘查项目
+org_units:
+- description: 公司总部
+  id: hq
+  name: 总部
+  parent: null
+reporting_year: 2024
+unit: tCO2e

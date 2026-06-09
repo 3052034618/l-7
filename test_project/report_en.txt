@@ -1,0 +1,72 @@
+============================================================
+  示例企业碳盘查项目 - GHG Emissions Audit Summary
+============================================================
+
+1. Basic Information
+----------------------------------------
+  Reporting Year: 2024
+  Base Year: 2023
+  Unit: tCO2e
+  Electricity Factor: national region
+
+2. Total Emissions
+----------------------------------------
+  Total Emissions: 266.10 tCO2e
+
+3. Emissions by Scope
+----------------------------------------
+  Scope 1 (Direct): 142.36 tCO2e  (53.5%)
+  Scope 2 (Indirect): 104.00 tCO2e  (39.1%)
+  Scope 3 (Other Indirect): 19.75 tCO2e  (7.4%)
+
+4. Emissions by Category
+----------------------------------------
+  Electricity: 104.00 tCO2e  (39.1%)
+  Refrigerant: 71.74 tCO2e  (27.0%)
+  Natural Gas: 45.41 tCO2e  (17.1%)
+  Gasoline: 25.22 tCO2e  (9.5%)
+  Hotel Stay: 9.88 tCO2e  (3.7%)
+  Air Travel: 9.47 tCO2e  (3.6%)
+  Rail Travel: 0.40 tCO2e  (0.1%)
+
+5. Emissions by Organizational Unit
+----------------------------------------
+  总部: 266.10 tCO2e  (100.0%)
+
+6. Monthly Trend
+----------------------------------------
+  2024-01  ████████ 17.76 tCO2e
+  2024-02  ███████ 16.00 tCO2e
+  2024-03  ████████████████████ 43.43 tCO2e
+  2024-04  ███████ 15.79 tCO2e
+  2024-05  ███████ 16.16 tCO2e
+  2024-06  ███████████████ 32.59 tCO2e
+  2024-07  ███████ 15.73 tCO2e
+  2024-08  ███████ 16.08 tCO2e
+  2024-09  ████████████████ 36.17 tCO2e
+  2024-10  ███████ 15.27 tCO2e
+  2024-11  ███████ 15.56 tCO2e
+  2024-12  ███████████ 25.56 tCO2e
+
+7. Data Quality Notes
+----------------------------------------
+  Missing data items: 8
+
+8. Supplementary Materials
+----------------------------------------
+  Missing data by month:
+      Refrigerant - 总部: 2024-01, 2024-02, 2024-04, 2024-05, 2024-07, 2024-08, 2024-10, 2024-11
+  
+  Recommended supporting documents:
+    1. Electricity bills / payment receipts
+    2. Gas bills / payment receipts
+    3. Fuel purchase invoices
+    4. Refrigerant purchase / recharge records
+    5. Travel expense reports
+    6. Organizational chart
+    7. Equipment list and usage records
+
+============================================================
+  Generated: 2026-06-10
+  Emission Factors: Standard database (with custom factors)
+============================================================

@@ -186,12 +186,17 @@ class DataChecker:
     
     def _get_org_units(self) -> List[str]:
         """获取组织单元列表"""
+        config_orgs = []
         if self.config.org_units:
-            return [ou.name for ou in self.config.org_units]
+            config_orgs = [ou.name for ou in self.config.org_units]
         
-        # 如果没有配置组织单元，使用数据中的组织单元
+        # 获取数据中的组织单元
         data_orgs = self.data_store.get_org_units()
-        return data_orgs if data_orgs else ["总部"]
+        
+        # 合并配置中的和数据中的组织单元，去重
+        all_orgs = list(dict.fromkeys(config_orgs + data_orgs))
+        
+        return all_orgs if all_orgs else ["总部"]
     
     def get_supplementary_materials(self) -> List[str]:
         """生成补充材料清单"""

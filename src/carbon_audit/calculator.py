@@ -27,35 +27,58 @@ class EmissionCalculator:
     
     def _get_factor(self, record: EnergyRecord) -> float:
         """获取记录的排放因子"""
-        # 优先使用自定义因子
+        # 优先使用自定义因子 - 按 factor_key
+        if record.factor_key and record.factor_key in self.custom_factors:
+            return self.custom_factors[record.factor_key]
+        
+        # 按类别和子类别组合的 key
         custom_key = f"{record.category.value}_{record.subcategory or 'default'}"
         if custom_key in self.custom_factors:
             return self.custom_factors[custom_key]
         
-        if record.factor_key and record.factor_key in self.custom_factors:
-            return self.custom_factors[record.factor_key]
+        # 根据类别确定 factor_key
+        factor_key = self._get_factor_key(record)
         
-        # 根据类别选择因子
+        # 检查 factor_key 是否在自定义因子中
+        if factor_key and factor_key in self.custom_factors:
+            return self.custom_factors[factor_key]
+        
+        # 使用默认因子
+        if factor_key:
+            return get_emission_factor(factor_key)
+        
+        return 0.0
+    
+    def _get_factor_key(self, record: EnergyRecord) -> str:
+        """获取记录对应的排放因子 key"""
         category = record.category
         
         if category == EnergyCategory.ELECTRICITY:
-            return self._get_electricity_factor()
+            return f"electricity_{self.config.electricity_region}"
         
         if category == EnergyCategory.REFRIGERANT:
-            return self._get_refrigerant_factor(record)
+            if record.factor_key:
+                return record.factor_key
+            subcategory = record.subcategory or ""
+            return REFRIGERANT_TYPES.get(subcategory, "")
         
         if category == EnergyCategory.AIR_TRAVEL:
-            return self._get_air_travel_factor(record)
+            subcategory = (record.subcategory or "").lower()
+            if "international" in subcategory or "国际" in subcategory:
+                return "air_travel_international"
+            return "air_travel_domestic"
         
         if category == EnergyCategory.ROAD_TRAVEL:
-            return self._get_road_travel_factor(record)
+            subcategory = (record.subcategory or "").lower()
+            if "taxi" in subcategory or "出租" in subcategory:
+                return "road_travel_taxi"
+            return "road_travel_bus"
         
-        # 其他类别直接使用默认因子
-        factor_key = category.value
+        # 其他类别
         if category == EnergyCategory.LPG:
-            factor_key = "liquefied_petroleum_gas"
+            return "liquefied_petroleum_gas"
         
-        return get_emission_factor(factor_key)
+        return category.value
     
     def _get_electricity_factor(self) -> float:
         """获取电力排放因子"""

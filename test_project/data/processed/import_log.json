@@ -1,0 +1,12 @@
+[
+  {
+    "time": "2026-06-10 05:09:03",
+    "data_type": "electricity",
+    "error_count": 1
+  },
+  {
+    "time": "2026-06-10 05:09:46",
+    "data_type": "gas",
+    "error_count": 1
+  }
+]

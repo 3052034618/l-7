@@ -4,8 +4,8 @@ import os
 import json
 import pickle
 from typing import List, Dict, Optional
-from datetime import date
-from .models import EnergyRecord, EnergyCategory
+from datetime import date, datetime
+from .models import EnergyRecord, EnergyCategory, ValidationError
 import pandas as pd
 
 
@@ -17,6 +17,8 @@ class DataStore:
         self.raw_dir = os.path.join(project_dir, "data", "raw")
         self.processed_dir = os.path.join(project_dir, "data", "processed")
         self.records_file = os.path.join(self.processed_dir, "records.pkl")
+        self.import_errors_file = os.path.join(self.processed_dir, "import_errors.pkl")
+        self.import_log_file = os.path.join(self.processed_dir, "import_log.json")
         self.summary_file = os.path.join(self.processed_dir, "summary.json")
         
         os.makedirs(self.raw_dir, exist_ok=True)
@@ -135,3 +137,79 @@ class DataStore:
             files_by_category[cat].add(r.source_file)
         
         return {k: sorted(list(v)) for k, v in files_by_category.items()}
+    
+    # ======== 导入错误持久化 ========
+    
+    def save_import_errors(self, errors: List[ValidationError], 
+                          data_type: str, import_time: Optional[datetime] = None) -> None:
+        """保存导入错误记录"""
+        all_errors = self.load_import_errors()
+        
+        if import_time is None:
+            import_time = datetime.now()
+        
+        # 添加时间戳和数据类型信息
+        for err in errors:
+            # 用字典方式存储额外信息
+            if not hasattr(err, 'import_time'):
+                err.import_time = import_time
+                err.data_type = data_type
+        
+        all_errors.extend(errors)
+        
+        with open(self.import_errors_file, "wb") as f:
+            pickle.dump(all_errors, f)
+        
+        # 同时更新导入日志
+        self._append_import_log(data_type, len(errors), import_time)
+    
+    def load_import_errors(self) -> List[ValidationError]:
+        """加载所有导入错误"""
+        if not os.path.exists(self.import_errors_file):
+            return []
+        
+        with open(self.import_errors_file, "rb") as f:
+            return pickle.load(f)
+    
+    def get_import_errors_by_file(self, file_path: str) -> List[ValidationError]:
+        """按文件获取导入错误"""
+        all_errors = self.load_import_errors()
+        return [e for e in all_errors if e.file == file_path]
+    
+    def get_import_errors_by_type(self, data_type: str) -> List[ValidationError]:
+        """按数据类型获取导入错误"""
+        all_errors = self.load_import_errors()
+        return [e for e in all_errors if getattr(e, 'data_type', None) == data_type]
+    
+    def clear_import_errors(self) -> None:
+        """清除所有导入错误记录"""
+        if os.path.exists(self.import_errors_file):
+            os.remove(self.import_errors_file)
+        if os.path.exists(self.import_log_file):
+            os.remove(self.import_log_file)
+    
+    def _append_import_log(self, data_type: str, error_count: int, 
+                          import_time: datetime) -> None:
+        """追加导入日志"""
+        log = self._load_import_log()
+        
+        log.append({
+            "time": import_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "data_type": data_type,
+            "error_count": error_count,
+        })
+        
+        with open(self.import_log_file, "w", encoding="utf-8") as f:
+            json.dump(log, f, ensure_ascii=False, indent=2)
+    
+    def _load_import_log(self) -> List[Dict]:
+        """加载导入日志"""
+        if not os.path.exists(self.import_log_file):
+            return []
+        
+        with open(self.import_log_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    
+    def get_import_log(self) -> List[Dict]:
+        """获取导入日志"""
+        return self._load_import_log()

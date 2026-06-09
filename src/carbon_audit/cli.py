@@ -210,6 +210,10 @@ def import_cmd(files, data_type, org_unit, directory):
             total_errors += len(errors)
             all_errors.extend(errors)
     
+    # 持久化保存导入错误
+    if all_errors:
+        data_store.save_import_errors(all_errors, data_type)
+    
     click.echo("")
     click.echo(f"✓ 导入完成")
     click.echo(f"  成功导入: {total_records} 条记录")
@@ -217,8 +221,8 @@ def import_cmd(files, data_type, org_unit, directory):
     
     if all_errors:
         click.echo("")
-        click.echo("错误详情：")
-        for err in all_errors[:20]:  # 只显示前20条
+        click.echo("错误详情（已保存，可运行 check 命令查看）：")
+        for err in all_errors[:20]:
             location = f"{err.file}"
             if err.sheet:
                 location += f" [{err.sheet}]"
@@ -237,109 +241,291 @@ def import_cmd(files, data_type, org_unit, directory):
 @main.command()
 @click.option("--year", "-y", type=int, help="检查年度 (默认: 项目报告年度)")
 @click.option("--org-unit", "-o", help="按组织单元过滤")
-@click.option("--format-only", is_flag=True, help="只检查文件格式")
+@click.option("--include-errors/--no-errors", default=True, 
+              help="是否显示导入错误 (默认: 显示)")
 @click.option("--output", "-O", type=click.Path(), help="输出检查报告到文件")
-def check(year, org_unit, format_only, output):
+@click.option("--format", "-f", "output_format", 
+              type=click.Choice(["text", "markdown", "excel"]),
+              default="text", help="输出格式 (默认: text)")
+def check(year, org_unit, include_errors, output, output_format):
     """检查数据完整性和格式问题
     
-    按月份检查缺项和格式问题，列出异常行位置。
+    按月份检查缺项和格式问题，列出异常行位置，
+    支持导出 Markdown 或 Excel 格式的检查清单。
     """
     project_dir = require_project()
     config = ProjectConfig.load(project_dir)
     data_store = DataStore(project_dir)
     
     check_year = year or config.reporting_year
-    
     checker = DataChecker(config, data_store)
     
-    # 检查已导入的文件
-    imported_files = data_store.get_imported_files()
-    
-    lines = []
-    lines.append("=" * 60)
-    lines.append(f"  数据质量检查报告 - {check_year}年")
-    lines.append("=" * 60)
-    lines.append("")
-    
-    # 已导入文件
-    lines.append("一、已导入文件")
-    lines.append("-" * 40)
-    
-    if imported_files:
-        for cat, files in imported_files.items():
-            try:
-                cat_label = EnergyCategory(cat).label_zh
-            except ValueError:
-                cat_label = cat
-            lines.append(f"  {cat_label}:")
-            for f in files:
-                lines.append(f"    - {os.path.basename(f)}")
-    else:
-        lines.append("  （暂无导入数据）")
-    lines.append("")
-    
     # 数据完整性检查
-    if not format_only:
-        missing, warnings = checker.check_all()
-        
-        # 过滤年度
-        missing = [m for m in missing if m.period.year == check_year]
-        
-        lines.append("二、缺失数据（按月份）")
-        lines.append("-" * 40)
-        
-        if missing:
-            # 按类别和组织单元分组
-            by_key = {}
-            for m in missing:
-                key = (m.category.label_zh, m.org_unit)
-                if key not in by_key:
-                    by_key[key] = []
-                by_key[key].append(m.period.strftime("%m月"))
-            
-            for (cat, ou), months in sorted(by_key.items()):
-                lines.append(f"  {cat} - {ou}:")
-                lines.append(f"    缺失月份: {', '.join(sorted(months))}")
-            
-            lines.append(f"  总计: {len(missing)} 项缺失")
-        else:
-            lines.append("  ✓ 数据完整，无缺失")
-        lines.append("")
-        
-        # 数据异常
-        lines.append("三、数据异常提醒")
-        lines.append("-" * 40)
-        
-        if warnings:
-            for w in warnings[:20]:
-                lines.append(f"  ⚠ {w}")
-            if len(warnings) > 20:
-                lines.append(f"  ... 还有 {len(warnings) - 20} 条提醒")
-        else:
-            lines.append("  ✓ 未发现数据异常")
-        lines.append("")
-        
-        # 补充材料清单
-        lines.append("四、补充材料清单")
-        lines.append("-" * 40)
-        materials = checker.get_supplementary_materials()
-        for mat in materials:
-            lines.append(f"  {mat}")
-        lines.append("")
+    missing, warnings = checker.check_all()
+    missing = [m for m in missing if m.period.year == check_year]
     
-    lines.append("=" * 60)
+    # 按组织单元过滤
+    if org_unit:
+        missing = [m for m in missing if m.org_unit == org_unit]
+        warnings = [w for w in warnings if org_unit in w]
     
-    report_text = "\n".join(lines)
+    # 获取导入错误
+    import_errors = []
+    if include_errors:
+        import_errors = data_store.load_import_errors()
+        if org_unit:
+            import_errors = [e for e in import_errors if org_unit in e.message]
+    
+    # 生成报告
+    if output_format == "excel":
+        # Excel 格式导出
+        _export_check_excel(
+            output or f"data_quality_check_{check_year}.xlsx",
+            missing, warnings, import_errors, check_year, org_unit, data_store
+        )
+        click.echo(f"✓ 检查报告已导出到: {output or f'data_quality_check_{check_year}.xlsx'}")
+        return
+    
+    # 文本/Markdown 格式
+    report_text = _generate_check_report(
+        check_year, org_unit, missing, warnings, import_errors, 
+        data_store, output_format == "markdown"
+    )
     
     # 输出
     if output:
-        os.makedirs(os.path.dirname(output) if os.path.dirname(output) else ".", 
-                    exist_ok=True)
+        output_dir = os.path.dirname(os.path.abspath(output))
+        os.makedirs(output_dir, exist_ok=True)
         with open(output, "w", encoding="utf-8") as f:
             f.write(report_text)
         click.echo(f"✓ 检查报告已保存到: {output}")
     else:
         click.echo(report_text)
+
+
+def _generate_check_report(year, org_unit, missing, warnings, import_errors,
+                          data_store, is_markdown=False) -> str:
+    """生成检查报告文本"""
+    lines = []
+    
+    title = f"数据质量检查报告 - {year}年"
+    if org_unit:
+        title += f"（{org_unit}）"
+    
+    if is_markdown:
+        lines.append(f"# {title}")
+        lines.append("")
+    else:
+        lines.append("=" * 60)
+        lines.append(f"  {title}")
+        lines.append("=" * 60)
+        lines.append("")
+    
+    # 一、已导入文件
+    h2_prefix = "## " if is_markdown else ""
+    sep = "---" if is_markdown else "-" * 40
+    
+    imported_files = data_store.get_imported_files()
+    
+    lines.append(f"{h2_prefix}一、已导入文件")
+    lines.append(sep)
+    lines.append("")
+    
+    if imported_files:
+        for cat, files in sorted(imported_files.items()):
+            try:
+                cat_label = EnergyCategory(cat).label_zh
+            except ValueError:
+                cat_label = cat
+            lines.append(f"**{cat_label}**：" if is_markdown else f"  {cat_label}:")
+            for f in files:
+                lines.append(f"  - {os.path.basename(f)}")
+            lines.append("")
+    else:
+        lines.append("  （暂无导入数据）")
+        lines.append("")
+    
+    # 二、缺失数据
+    lines.append(f"{h2_prefix}二、缺失数据（按月份）")
+    lines.append(sep)
+    lines.append("")
+    
+    if missing:
+        by_key = {}
+        for m in missing:
+            key = (m.category.label_zh, m.org_unit)
+            if key not in by_key:
+                by_key[key] = []
+            by_key[key].append(m.period.strftime("%m月"))
+        
+        for (cat, ou), months in sorted(by_key.items()):
+            lines.append(f"  **{cat} - {ou}**：" if is_markdown else f"  {cat} - {ou}:")
+            lines.append(f"    缺失月份: {', '.join(sorted(months))}")
+            lines.append("")
+        
+        lines.append(f"  总计: {len(missing)} 项缺失")
+    else:
+        lines.append("  ✓ 数据完整，无缺失")
+    lines.append("")
+    
+    # 三、数据异常
+    lines.append(f"{h2_prefix}三、数据异常提醒")
+    lines.append(sep)
+    lines.append("")
+    
+    if warnings:
+        for w in warnings[:30]:
+            lines.append(f"  ⚠ {w}")
+        if len(warnings) > 30:
+            lines.append(f"  ... 还有 {len(warnings) - 30} 条提醒")
+    else:
+        lines.append("  ✓ 未发现数据异常")
+    lines.append("")
+    
+    # 四、导入错误记录
+    lines.append(f"{h2_prefix}四、导入错误记录")
+    lines.append(sep)
+    lines.append("")
+    
+    if import_errors:
+        # 按文件分组
+        by_file = {}
+        for e in import_errors:
+            key = e.file
+            if key not in by_file:
+                by_file[key] = []
+            by_file[key].append(e)
+        
+        for file_path, errors in sorted(by_file.items()):
+            lines.append(f"  **{os.path.basename(file_path)}**：" 
+                        if is_markdown else f"  {os.path.basename(file_path)}:")
+            
+            for e in errors[:10]:
+                location = ""
+                if e.sheet:
+                    location += f"[{e.sheet}] "
+                if e.line_number > 0:
+                    location += f"第{e.line_number}行 "
+                lines.append(f"    - {location}{e.message}")
+            
+            if len(errors) > 10:
+                lines.append(f"    ... 还有 {len(errors) - 10} 条错误")
+            lines.append("")
+        
+        lines.append(f"  总计: {len(import_errors)} 条导入错误")
+    else:
+        lines.append("  ✓ 无导入错误记录")
+    lines.append("")
+    
+    # 五、补充材料清单
+    lines.append(f"{h2_prefix}五、补充材料清单")
+    lines.append(sep)
+    lines.append("")
+    
+    materials = _get_supplementary_materials_list(missing, warnings)
+    for mat in materials:
+        lines.append(f"  {mat}")
+    lines.append("")
+    
+    if not is_markdown:
+        lines.append("=" * 60)
+    
+    return "\n".join(lines)
+
+
+def _get_supplementary_materials_list(missing, warnings) -> list:
+    """获取补充材料清单"""
+    materials = []
+    
+    if missing:
+        materials.append("**待补数据文件：**" if False else "待补数据文件：")
+        by_cat = {}
+        for m in missing:
+            cat = m.category.label_zh
+            if cat not in by_cat:
+                by_cat[cat] = set()
+            by_cat[cat].add(m.period.strftime("%Y年%m月"))
+        
+        for cat, months in sorted(by_cat.items()):
+            materials.append(f"  - {cat}：{', '.join(sorted(months))} 数据")
+    
+    if warnings:
+        materials.append("")
+        materials.append("**需核实的数据：**" if False else "需核实的数据：")
+        for w in warnings[:10]:
+            materials.append(f"  - {w}")
+    
+    materials.append("")
+    materials.append("**建议收集的证明材料：**" if False else "建议收集的证明材料：")
+    materials.append("  1. 电费账单/缴费凭证")
+    materials.append("  2. 燃气费账单/缴费凭证")
+    materials.append("  3. 燃油采购发票")
+    materials.append("  4. 冷媒采购/充装记录")
+    materials.append("  5. 差旅报销凭证")
+    materials.append("  6. 组织架构图")
+    materials.append("  7. 设备清单及使用记录")
+    
+    return materials
+
+
+def _export_check_excel(output_path, missing, warnings, import_errors,
+                       year, org_unit, data_store):
+    """导出检查报告到 Excel"""
+    import pandas as pd
+    from datetime import datetime
+    
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    os.makedirs(output_dir, exist_ok=True)
+    
+    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+        # Sheet 1: 概览
+        overview_data = {
+            "项目": ["报告年度", "组织单元", "缺失数据项", "异常提醒数", "导入错误数", "生成时间"],
+            "内容": [
+                f"{year}年",
+                org_unit or "全部",
+                len(missing),
+                len(warnings),
+                len(import_errors),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ]
+        }
+        pd.DataFrame(overview_data).to_excel(writer, sheet_name="概览", index=False)
+        
+        # Sheet 2: 缺失数据
+        if missing:
+            missing_data = []
+            for m in missing:
+                missing_data.append({
+                    "能源类别": m.category.label_zh,
+                    "组织单元": m.org_unit,
+                    "缺失月份": m.period.strftime("%Y年%m月"),
+                    "原因": m.reason,
+                })
+            pd.DataFrame(missing_data).to_excel(writer, sheet_name="缺失数据", index=False)
+        
+        # Sheet 3: 异常提醒
+        if warnings:
+            warn_data = [{"序号": i+1, "异常描述": w} for i, w in enumerate(warnings)]
+            pd.DataFrame(warn_data).to_excel(writer, sheet_name="异常提醒", index=False)
+        
+        # Sheet 4: 导入错误
+        if import_errors:
+            err_data = []
+            for e in import_errors:
+                err_data.append({
+                    "文件": os.path.basename(e.file),
+                    "工作表": e.sheet or "",
+                    "行号": e.line_number,
+                    "错误类型": e.error_type,
+                    "错误信息": e.message,
+                })
+            pd.DataFrame(err_data).to_excel(writer, sheet_name="导入错误", index=False)
+        
+        # Sheet 5: 补充材料清单
+        materials = _get_supplementary_materials_list(missing, warnings)
+        mat_data = [{"序号": i+1, "材料/事项": m} for i, m in enumerate(materials)]
+        pd.DataFrame(mat_data).to_excel(writer, sheet_name="补充材料清单", index=False)
 
 
 # ==================== calc 命令 ====================
@@ -510,18 +696,14 @@ def report(year, org_unit, language, unit, start_date, end_date,
     
     # 生成报告
     checker = DataChecker(config, data_store)
-    reporter = ReportGenerator(config, summary, checker, report_language)
+    reporter = ReportGenerator(config, summary, checker, 
+                            language=report_language, unit=report_unit)
     
     # 确定输出路径
     if not output:
         report_dir = os.path.join(project_dir, "reports")
         os.makedirs(report_dir, exist_ok=True)
-        
-        filename = f"碳盘查报告_{report_year}"
-        if org_unit:
-            filename += f"_{org_unit}"
-        filename += f".{output_format}"
-        
+        filename = reporter.get_default_filename(report_year, org_unit, output_format)
         output = os.path.join(report_dir, filename)
     
     # 生成报告
@@ -530,6 +712,7 @@ def report(year, org_unit, language, unit, start_date, end_date,
         org_unit=org_unit,
         start_date=start_dt,
         end_date=end_dt,
+        output_format=output_format,
     )
     
     click.echo(f"✓ 报告已生成: {output}")
@@ -631,6 +814,245 @@ def list_cmd(list_type):
         click.echo("数据年份：")
         for y in years:
             click.echo(f"  - {y}年")
+
+
+# ==================== factors 命令组 ====================
+@main.group()
+def factors():
+    """排放因子库管理
+    
+    查看和管理项目中的排放因子，支持自定义因子。
+    """
+    pass
+
+
+@factors.command("list")
+@click.option("--scope", "-s", 
+              type=click.Choice(["all", "scope1", "scope2", "scope3"]),
+              default="all", help="按范围筛选 (默认: all)")
+@click.option("--include-custom/--no-custom", default=True,
+              help="是否显示自定义因子 (默认: 显示)")
+def factors_list(scope, include_custom):
+    """列出所有排放因子"""
+    project_dir = require_project()
+    config = ProjectConfig.load(project_dir)
+    
+    from .emission_factors import (
+        SCOPE1_FACTORS, SCOPE2_FACTORS, SCOPE3_FACTORS,
+        REFRIGERANT_TYPES
+    )
+    
+    all_factors = {}
+    if scope in ["all", "scope1"]:
+        for k, v in SCOPE1_FACTORS.items():
+            all_factors[k] = {"value": v, "scope": "scope1", "custom": False}
+    if scope in ["all", "scope2"]:
+        for k, v in SCOPE2_FACTORS.items():
+            all_factors[k] = {"value": v, "scope": "scope2", "custom": False}
+    if scope in ["all", "scope3"]:
+        for k, v in SCOPE3_FACTORS.items():
+            all_factors[k] = {"value": v, "scope": "scope3", "custom": False}
+    
+    # 标记自定义因子
+    custom_factors = config.custom_factors or {}
+    for key, value in custom_factors.items():
+        if key in all_factors:
+            all_factors[key]["custom"] = True
+            all_factors[key]["custom_value"] = value
+        else:
+            all_factors[key] = {"value": value, "scope": "custom", "custom": True}
+    
+    click.echo("=" * 70)
+    click.echo(f"  排放因子列表 - {config.name}")
+    click.echo("=" * 70)
+    click.echo("")
+    
+    # 按范围分组显示
+    scopes = ["scope1", "scope2", "scope3", "custom"]
+    scope_labels = {
+        "scope1": "范围一（直接排放）",
+        "scope2": "范围二（间接排放）",
+        "scope3": "范围三（其他间接）",
+        "custom": "自定义因子",
+    }
+    
+    for s in scopes:
+        scope_factors = {k: v for k, v in all_factors.items() if v["scope"] == s}
+        if not scope_factors:
+            continue
+        
+        click.echo(f"【{scope_labels[s]}】")
+        click.echo("-" * 50)
+        
+        for key in sorted(scope_factors.keys()):
+            info = scope_factors[key]
+            default_val = info["value"]
+            custom_mark = ""
+            current_val = default_val
+            
+            if info.get("custom") and include_custom:
+                custom_mark = " *"
+                current_val = info.get("custom_value", default_val)
+            
+            # 格式化显示
+            if current_val >= 100:
+                val_str = f"{current_val:,.1f}"
+            else:
+                val_str = f"{current_val:.4f}".rstrip('0').rstrip('.')
+            
+            click.echo(f"  {key:<35s} {val_str:>10s}{custom_mark}")
+        
+        click.echo("")
+    
+    # 当前电力区域
+    click.echo("-" * 50)
+    elec_key = f"electricity_{config.electricity_region}"
+    elec_factor = all_factors.get(elec_key, {}).get("value", 0)
+    click.echo(f"当前电力区域：{config.electricity_region}")
+    click.echo(f"电力排放因子：{elec_factor} kgCO2e/kWh")
+    click.echo("")
+    
+    if include_custom and custom_factors:
+        click.echo("  * 标记表示已设置为自定义值")
+        click.echo("")
+    
+    click.echo("提示：使用 'carbon-audit factors set <因子名> <值>' 设置自定义因子")
+    click.echo("      使用 'carbon-audit factors reset <因子名>' 恢复默认值")
+
+
+@factors.command("set")
+@click.argument("factor_key")
+@click.argument("value", type=float)
+def factors_set(factor_key, value):
+    """设置自定义排放因子
+    
+    FACTOR_KEY: 因子名称（如 electricity_national, natural_gas, refrigerant_r22）
+    VALUE: 排放因子值（kgCO2e/单位）
+    """
+    project_dir = require_project()
+    config = ProjectConfig.load(project_dir)
+    
+    # 验证因子名称
+    from .emission_factors import (
+        SCOPE1_FACTORS, SCOPE2_FACTORS, SCOPE3_FACTORS
+    )
+    all_known = {**SCOPE1_FACTORS, **SCOPE2_FACTORS, **SCOPE3_FACTORS}
+    
+    if factor_key not in all_known:
+        click.echo(f"⚠  警告：因子 '{factor_key}' 不在标准因子库中，将作为自定义因子保存")
+    
+    # 保存自定义因子
+    if not config.custom_factors:
+        config.custom_factors = {}
+    
+    old_value = config.custom_factors.get(factor_key, all_known.get(factor_key, 0))
+    config.custom_factors[factor_key] = value
+    config.save(project_dir)
+    
+    click.echo(f"✓ 已设置排放因子")
+    click.echo(f"  因子名称：{factor_key}")
+    click.echo(f"  原值：{old_value}")
+    click.echo(f"  新值：{value}")
+    click.echo("")
+    click.echo("提示：运行 'carbon-audit calc' 重新计算排放量")
+
+
+@factors.command("reset")
+@click.argument("factor_key", required=False)
+@click.option("--all", "-a", "reset_all", is_flag=True, help="重置所有自定义因子")
+def factors_reset(factor_key, reset_all):
+    """重置排放因子为默认值
+    
+    FACTOR_KEY: 要重置的因子名称（可选，不指定则需 --all）
+    """
+    project_dir = require_project()
+    config = ProjectConfig.load(project_dir)
+    
+    if not config.custom_factors:
+        click.echo("当前没有自定义因子，无需重置")
+        return
+    
+    if reset_all:
+        count = len(config.custom_factors)
+        config.custom_factors = {}
+        config.save(project_dir)
+        click.echo(f"✓ 已重置所有 {count} 个自定义因子")
+        return
+    
+    if not factor_key:
+        raise CarbonAuditError("请指定要重置的因子名称，或使用 --all 重置全部")
+    
+    if factor_key not in config.custom_factors:
+        click.echo(f"因子 '{factor_key}' 没有自定义值，无需重置")
+        return
+    
+    del config.custom_factors[factor_key]
+    config.save(project_dir)
+    click.echo(f"✓ 已重置因子 '{factor_key}' 为默认值")
+
+
+@factors.command("electricity")
+@click.argument("region", type=click.Choice([
+    "national", "north", "northeast", "east", 
+    "central", "south", "southwest", "northwest"
+]))
+def factors_electricity(region):
+    """设置电力排放因子区域
+    
+    REGION: 电网区域（national/north/northeast/east/central/south/southwest/northwest）
+    """
+    project_dir = require_project()
+    config = ProjectConfig.load(project_dir)
+    
+    old_region = config.electricity_region
+    config.electricity_region = region
+    config.save(project_dir)
+    
+    from .emission_factors import SCOPE2_FACTORS
+    
+    old_factor = SCOPE2_FACTORS.get(f"electricity_{old_region}", 0)
+    new_factor = SCOPE2_FACTORS.get(f"electricity_{region}", 0)
+    
+    click.echo(f"✓ 已切换电力排放因子区域")
+    click.echo(f"  原区域：{old_region} ({old_factor} kgCO2e/kWh)")
+    click.echo(f"  新区域：{region} ({new_factor} kgCO2e/kWh)")
+    click.echo("")
+    click.echo("提示：运行 'carbon-audit calc' 重新计算排放量")
+
+
+@factors.command("refrigerants")
+def factors_refrigerants():
+    """列出所有冷媒排放因子（GWP值）"""
+    project_dir = require_project()
+    config = ProjectConfig.load(project_dir)
+    
+    from .emission_factors import REFRIGERANT_TYPES, SCOPE1_FACTORS
+    
+    click.echo("=" * 60)
+    click.echo("  冷媒排放因子（GWP值）")
+    click.echo("=" * 60)
+    click.echo("")
+    
+    click.echo(f"{'冷媒型号':<15s} {'因子Key':<25s} {'GWP值':>10s}")
+    click.echo("-" * 60)
+    
+    for refrigerant, factor_key in sorted(REFRIGERANT_TYPES.items()):
+        gwp = SCOPE1_FACTORS.get(factor_key, 0)
+        
+        # 检查是否有自定义值
+        if config.custom_factors and factor_key in config.custom_factors:
+            gwp = config.custom_factors[factor_key]
+            mark = " *"
+        else:
+            mark = ""
+        
+        click.echo(f"{refrigerant:<15s} {factor_key:<25s} {gwp:>10,.0f}{mark}")
+    
+    click.echo("")
+    if config.custom_factors:
+        click.echo("  * 标记为自定义值")
+    click.echo("")
+    click.echo("提示：使用 'carbon-audit factors set refrigerant_r22 1800' 修改冷媒GWP值")
 
 
 if __name__ == "__main__":

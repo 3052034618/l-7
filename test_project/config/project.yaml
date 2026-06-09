@@ -1,5 +1,13 @@
 base_year: 2023
-custom_factors: {}
+custom_factors:
+  electricity_national:
+    created_at: '2026-06-10 05:27:09'
+    effective_date: '2024-01-01'
+    notes: 最新版电网排放因子
+    source: 中国区域电网排放因子 2024
+    updated_at: '2026-06-10 05:27:09'
+    value: 0.6
+    version: v2.0
 description: ''
 electricity_region: national
 language: zh

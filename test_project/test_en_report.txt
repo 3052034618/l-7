@@ -1,0 +1,83 @@
+============================================================
+  示例企业碳盘查项目 - GHG Emissions Audit Summary
+============================================================
+
+1. Basic Information
+----------------------------------------
+  Reporting Year: 2024
+  Base Year: 2023
+  Unit: tCO2e
+  Electricity Factor: national region
+
+2. Total Emissions
+----------------------------------------
+  Total Emissions: 298.91 tCO2e
+
+3. Emissions by Scope
+----------------------------------------
+  Scope 1 (Direct): 171.76 tCO2e  (57.5%)
+  Scope 2 (Indirect): 107.40 tCO2e  (35.9%)
+  Scope 3 (Other Indirect): 19.75 tCO2e  (6.6%)
+
+4. Emissions by Category
+----------------------------------------
+  Electricity: 107.40 tCO2e  (35.9%)
+  Natural Gas: 74.81 tCO2e  (25.0%)
+  Refrigerant: 71.74 tCO2e  (24.0%)
+  Gasoline: 25.22 tCO2e  (8.4%)
+  Hotel Stay: 9.88 tCO2e  (3.3%)
+  Air Travel: 9.47 tCO2e  (3.2%)
+  Rail Travel: 0.40 tCO2e  (0.1%)
+
+5. Emissions by Organizational Unit
+----------------------------------------
+  总部: 269.50 tCO2e  (90.2%)
+  分部: 29.41 tCO2e  (9.8%)
+
+6. Monthly Trend
+----------------------------------------
+  2024-01  ████████ 20.16 tCO2e
+  2024-02  ████████ 18.82 tCO2e
+  2024-03  ████████████████████ 45.63 tCO2e
+  2024-04  ████████ 18.44 tCO2e
+  2024-05  ████████ 18.63 tCO2e
+  2024-06  ███████████████ 35.73 tCO2e
+  2024-07  ████████ 19.11 tCO2e
+  2024-08  ████████ 19.68 tCO2e
+  2024-09  █████████████████ 39.08 tCO2e
+  2024-10  ███████ 17.70 tCO2e
+  2024-11  ███████ 17.76 tCO2e
+  2024-12  ████████████ 28.18 tCO2e
+
+7. Data Quality Notes
+----------------------------------------
+  Missing data items: 80
+  Data warnings: 1
+
+8. Supplementary Materials
+----------------------------------------
+  Missing data by month:
+      Air Travel - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Electricity - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Gasoline - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Hotel Stay - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Rail Travel - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+      Refrigerant - 总部: 2024-01, 2024-02, 2024-04, 2024-05, 2024-07, 2024-08, 2024-10, 2024-11
+      Refrigerant - 分部: 2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12
+  
+  Data to confirm:
+      - 数据中存在未配置的组织单元: 分部
+  
+  Recommended supporting documents:
+    1. Electricity bills / payment receipts
+    2. Gas bills / payment receipts
+    3. Fuel purchase invoices
+    4. Refrigerant purchase / recharge records
+    5. Travel expense reports
+    6. Organizational chart
+    7. Equipment list and usage records
+
+============================================================
+  Generated: 2026-06-10
+  Emission Factors: Standard database (with custom factors)
+============================================================

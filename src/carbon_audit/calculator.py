@@ -16,10 +16,46 @@ class EmissionCalculator:
         self.config = config
         self.custom_factors = config.custom_factors or {}
     
+    def _get_custom_factor_value(self, key: str) -> float | None:
+        """获取自定义因子值（返回 None 表示没有自定义）"""
+        if key in self.custom_factors:
+            factor_config = self.custom_factors[key]
+            return factor_config.value
+        return None
+    
+    def get_factor_info(self, factor_key: str) -> dict:
+        """获取因子的完整信息（用于报告展示）
+        
+        Returns:
+            dict: 包含 value, source, version, is_custom 等信息
+        """
+        is_custom = factor_key in self.custom_factors
+        
+        if is_custom:
+            cf = self.custom_factors[factor_key]
+            return {
+                "value": cf.value,
+                "source": cf.source or "自定义",
+                "version": cf.version or "",
+                "effective_date": cf.effective_date,
+                "is_custom": True,
+            }
+        else:
+            from .emission_factors import get_emission_factor
+            return {
+                "value": get_emission_factor(factor_key),
+                "source": "标准因子库",
+                "version": "default",
+                "effective_date": None,
+                "is_custom": False,
+            }
+    
     def calculate_emissions(self, records: List[EnergyRecord]) -> List[EnergyRecord]:
         """计算所有记录的排放量"""
         for record in records:
+            factor_key = self._get_factor_key(record)
             factor = self._get_factor(record)
+            record.factor_key = factor_key or record.factor_key
             record.emission_factor = factor
             record.emission_kg = record.quantity * factor
         
@@ -28,20 +64,24 @@ class EmissionCalculator:
     def _get_factor(self, record: EnergyRecord) -> float:
         """获取记录的排放因子"""
         # 优先使用自定义因子 - 按 factor_key
-        if record.factor_key and record.factor_key in self.custom_factors:
-            return self.custom_factors[record.factor_key]
+        custom_val = self._get_custom_factor_value(record.factor_key)
+        if record.factor_key and custom_val is not None:
+            return custom_val
         
         # 按类别和子类别组合的 key
         custom_key = f"{record.category.value}_{record.subcategory or 'default'}"
-        if custom_key in self.custom_factors:
-            return self.custom_factors[custom_key]
+        custom_val = self._get_custom_factor_value(custom_key)
+        if custom_val is not None:
+            return custom_val
         
         # 根据类别确定 factor_key
         factor_key = self._get_factor_key(record)
         
         # 检查 factor_key 是否在自定义因子中
-        if factor_key and factor_key in self.custom_factors:
-            return self.custom_factors[factor_key]
+        if factor_key:
+            custom_val = self._get_custom_factor_value(factor_key)
+            if custom_val is not None:
+                return custom_val
         
         # 使用默认因子
         if factor_key:

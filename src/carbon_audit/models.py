@@ -131,6 +131,8 @@ class ValidationError:
     error_type: str
     message: str
     column: Optional[str] = None
+    org_unit: Optional[str] = None
+    category: Optional[str] = None
 
 
 @dataclass
@@ -153,3 +155,60 @@ class EmissionSummary:
     by_org_unit: Dict[str, float] = field(default_factory=dict)
     by_month: Dict[str, float] = field(default_factory=dict)
     records: List[EnergyRecord] = field(default_factory=list)
+
+
+class AuditAction(str, Enum):
+    """审计操作类型"""
+    IMPORT = "import"
+    CALC = "calc"
+    REPORT = "report"
+    FACTOR_CHANGE = "factor_change"
+    CHECK = "check"
+    CONFIG_CHANGE = "config_change"
+
+    @property
+    def label_zh(self) -> str:
+        labels = {
+            "import": "数据导入",
+            "calc": "排放计算",
+            "report": "报告生成",
+            "factor_change": "因子变更",
+            "check": "数据检查",
+            "config_change": "配置变更",
+        }
+        return labels[self.value]
+
+    @property
+    def label_en(self) -> str:
+        labels = {
+            "import": "Data Import",
+            "calc": "Emission Calculation",
+            "report": "Report Generation",
+            "factor_change": "Factor Change",
+            "check": "Data Check",
+            "config_change": "Config Change",
+        }
+        return labels[self.value]
+
+
+@dataclass
+class AuditLogEntry:
+    """审计日志条目"""
+    timestamp: str  # ISO format datetime string
+    action: AuditAction
+    description: str
+    details: Dict[str, str] = field(default_factory=dict)
+    user: Optional[str] = None
+
+
+@dataclass
+class CustomFactor:
+    """自定义排放因子（含元数据）"""
+    key: str
+    value: float
+    source: str = ""
+    version: str = ""
+    effective_date: Optional[str] = None  # YYYY-MM-DD
+    notes: str = ""
+    created_at: str = ""
+    updated_at: str = ""

@@ -1,0 +1,151 @@
+[
+  {
+    "timestamp": "2026-06-10 05:24:08",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "full_report_test.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:27:09",
+    "action": "factor_change",
+    "description": "设置排放因子 electricity_national：0.581 → 0.6",
+    "details": {
+      "factor_key": "electricity_national",
+      "old_value": "0.581",
+      "new_value": "0.6",
+      "change_type": "set",
+      "source": "中国区域电网排放因子 2024",
+      "version": "v2.0"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:27:43",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "full_report_with_factor.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:29:11",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "full_report_fixed.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:29:53",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "full_report_final.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:30:26",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "test_full_report.txt",
+      "is_full": "True"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:30:26",
+    "action": "report",
+    "description": "生成 2024 年报告，语言：en，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "en",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "test_en_report.txt",
+      "is_full": "False"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:30:27",
+    "action": "report",
+    "description": "生成 2024 年报告，语言：zh，单位：kgCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "kgCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "test_kg_report.txt",
+      "is_full": "False"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:30:28",
+    "action": "report",
+    "description": "生成 2024 年报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "总部",
+      "output_format": "text",
+      "output_file": "test_org_h1_report.txt",
+      "is_full": "False"
+    },
+    "user": null
+  },
+  {
+    "timestamp": "2026-06-10 05:30:52",
+    "action": "report",
+    "description": "生成 2024 年完整报告，语言：zh，单位：tCO2e",
+    "details": {
+      "year": "2024",
+      "language": "zh",
+      "unit": "tCO2e",
+      "org_unit": "all",
+      "output_format": "text",
+      "output_file": "full_report_q2.txt",
+      "is_full": "True"
+    },
+    "user": null
+  }
+]

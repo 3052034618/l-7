@@ -5,7 +5,10 @@ import json
 import pickle
 from typing import List, Dict, Optional
 from datetime import date, datetime
-from .models import EnergyRecord, EnergyCategory, ValidationError
+from .models import (
+    EnergyRecord, EnergyCategory, ValidationError,
+    AuditLogEntry, AuditAction
+)
 import pandas as pd
 
 
@@ -19,6 +22,7 @@ class DataStore:
         self.records_file = os.path.join(self.processed_dir, "records.pkl")
         self.import_errors_file = os.path.join(self.processed_dir, "import_errors.pkl")
         self.import_log_file = os.path.join(self.processed_dir, "import_log.json")
+        self.audit_log_file = os.path.join(self.processed_dir, "audit_log.json")
         self.summary_file = os.path.join(self.processed_dir, "summary.json")
         
         os.makedirs(self.raw_dir, exist_ok=True)
@@ -213,3 +217,72 @@ class DataStore:
     def get_import_log(self) -> List[Dict]:
         """获取导入日志"""
         return self._load_import_log()
+    
+    # ======== 审计日志 ========
+    
+    def add_audit_log(self, action: AuditAction, description: str,
+                      details: Optional[Dict[str, str]] = None,
+                      user: Optional[str] = None) -> None:
+        """添加审计日志条目"""
+        logs = self._load_audit_log()
+        
+        entry = AuditLogEntry(
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            action=action,
+            description=description,
+            details=details or {},
+            user=user,
+        )
+        
+        logs.append({
+            "timestamp": entry.timestamp,
+            "action": entry.action.value,
+            "description": entry.description,
+            "details": entry.details,
+            "user": entry.user,
+        })
+        
+        with open(self.audit_log_file, "w", encoding="utf-8") as f:
+            json.dump(logs, f, ensure_ascii=False, indent=2)
+    
+    def _load_audit_log(self) -> List[Dict]:
+        """加载审计日志"""
+        if not os.path.exists(self.audit_log_file):
+            return []
+        
+        with open(self.audit_log_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    
+    def get_audit_log(self, action: Optional[AuditAction] = None,
+                      start_date: Optional[str] = None,
+                      end_date: Optional[str] = None,
+                      limit: int = 100) -> List[Dict]:
+        """获取审计日志（支持过滤）
+        
+        Args:
+            action: 按操作类型过滤
+            start_date: 开始日期 (YYYY-MM-DD)
+            end_date: 结束日期 (YYYY-MM-DD)
+            limit: 最多返回条数
+        """
+        logs = self._load_audit_log()
+        
+        # 过滤
+        filtered = []
+        for log in logs:
+            # 按操作类型过滤
+            if action and log["action"] != action.value:
+                continue
+            
+            # 按日期过滤
+            log_date = log["timestamp"][:10]  # YYYY-MM-DD
+            if start_date and log_date < start_date:
+                continue
+            if end_date and log_date > end_date:
+                continue
+            
+            filtered.append(log)
+        
+        # 按时间倒序，取最新的
+        filtered.reverse()
+        return filtered[:limit]

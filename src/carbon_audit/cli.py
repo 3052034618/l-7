@@ -12,7 +12,7 @@ from .calculator import EmissionCalculator
 from .checker import DataChecker
 from .reporter import ReportGenerator
 from .comparator import YearComparator
-from .models import EnergyCategory
+from .models import EnergyCategory, AuditAction
 from . import __version__
 
 
@@ -235,6 +235,18 @@ def import_cmd(files, data_type, org_unit, directory):
     
     click.echo("")
     click.echo(f"提示：运行 'carbon-audit check' 检查数据完整性")
+    
+    # 记录审计日志
+    data_store.add_audit_log(
+        action=AuditAction.IMPORT,
+        description=f"导入 {data_type} 数据，共 {total_records} 条成功，{total_errors} 条错误",
+        details={
+            "data_type": data_type,
+            "files": str(len(all_files)),
+            "records_imported": str(total_records),
+            "errors": str(total_errors),
+        }
+    )
 
 
 # ==================== check 命令 ====================
@@ -274,7 +286,9 @@ def check(year, org_unit, include_errors, output, output_format):
     if include_errors:
         import_errors = data_store.load_import_errors()
         if org_unit:
-            import_errors = [e for e in import_errors if org_unit in e.message]
+            import_errors = [e for e in import_errors 
+                           if e.org_unit == org_unit 
+                           or (e.org_unit is None and org_unit in e.message)]
     
     # 生成报告
     if output_format == "excel":
@@ -388,28 +402,52 @@ def _generate_check_report(year, org_unit, missing, warnings, import_errors,
     lines.append("")
     
     if import_errors:
-        # 按文件分组
+        # 按文件分组，文件内按错误类型分组
         by_file = {}
         for e in import_errors:
-            key = e.file
-            if key not in by_file:
-                by_file[key] = []
-            by_file[key].append(e)
+            file_key = e.file
+            if file_key not in by_file:
+                by_file[file_key] = {}
+            type_key = e.error_type
+            if type_key not in by_file[file_key]:
+                by_file[file_key][type_key] = []
+            by_file[file_key][type_key].append(e)
         
-        for file_path, errors in sorted(by_file.items()):
-            lines.append(f"  **{os.path.basename(file_path)}**：" 
-                        if is_markdown else f"  {os.path.basename(file_path)}:")
+        error_type_labels = {
+            "format_error": "文件格式错误",
+            "missing_column": "缺少必要列",
+            "parse_error": "数据解析错误",
+            "file_not_found": "文件不存在",
+        }
+        
+        for file_path, errors_by_type in sorted(by_file.items()):
+            file_label = os.path.basename(file_path)
+            lines.append(f"  **{file_label}**：" 
+                        if is_markdown else f"  {file_label}:")
             
-            for e in errors[:10]:
-                location = ""
-                if e.sheet:
-                    location += f"[{e.sheet}] "
-                if e.line_number > 0:
-                    location += f"第{e.line_number}行 "
-                lines.append(f"    - {location}{e.message}")
+            for error_type, errors in sorted(errors_by_type.items()):
+                type_label = error_type_labels.get(error_type, error_type)
+                lines.append(f"    - {type_label}（{len(errors)} 条）：")
+                
+                # 按行号排序后显示
+                errors_sorted = sorted(errors, key=lambda x: (x.line_number or 0, x.message))
+                for e in errors_sorted[:5]:
+                    location_parts = []
+                    if e.sheet:
+                        location_parts.append(f"工作表：{e.sheet}")
+                    if e.line_number and e.line_number > 0:
+                        location_parts.append(f"第{e.line_number}行")
+                    location = f"[{', '.join(location_parts)}]" if location_parts else ""
+                    
+                    org_info = ""
+                    if e.org_unit:
+                        org_info = f"（{e.org_unit}）"
+                    
+                    lines.append(f"      {location} {e.message}{org_info}")
+                
+                if len(errors) > 5:
+                    lines.append(f"      ... 还有 {len(errors) - 5} 条同类错误")
             
-            if len(errors) > 10:
-                lines.append(f"    ... 还有 {len(errors) - 10} 条错误")
             lines.append("")
         
         lines.append(f"  总计: {len(import_errors)} 条导入错误")
@@ -513,13 +551,21 @@ def _export_check_excel(output_path, missing, warnings, import_errors,
         if import_errors:
             err_data = []
             for e in import_errors:
+                try:
+                    cat_label = EnergyCategory(e.category).label_zh if e.category else ""
+                except ValueError:
+                    cat_label = e.category or ""
                 err_data.append({
                     "文件": os.path.basename(e.file),
                     "工作表": e.sheet or "",
-                    "行号": e.line_number,
-                    "错误类型": e.error_type,
+                    "行号": e.line_number if e.line_number and e.line_number > 0 else "",
+                    "组织单元": e.org_unit or "",
+                    "能源类别": cat_label,
+                    "问题类型": e.error_type,
                     "错误信息": e.message,
                 })
+            # 按 文件-行号-问题类型 排序
+            err_data.sort(key=lambda x: (x["文件"], x["行号"] or 0, x["问题类型"]))
             pd.DataFrame(err_data).to_excel(writer, sheet_name="导入错误", index=False)
         
         # Sheet 5: 补充材料清单
@@ -632,6 +678,18 @@ def calc(year, org_unit, export, unit):
         click.echo(f"✓ 结果已导出到: {export}")
     
     click.echo("提示：运行 'carbon-audit report' 生成详细报告")
+    
+    # 记录审计日志
+    data_store.add_audit_log(
+        action=AuditAction.CALC,
+        description=f"计算 {calc_year} 年排放量，共 {len(records)} 条记录，总排放 {summary.total:.2f} kgCO2e",
+        details={
+            "year": str(calc_year),
+            "records": str(len(records)),
+            "total_kg": f"{summary.total:.2f}",
+            "electricity_region": config.electricity_region,
+        }
+    )
 
 
 # ==================== report 命令 ====================
@@ -650,12 +708,16 @@ def calc(year, org_unit, export, unit):
 @click.option("--format", "-f", "output_format", 
               type=click.Choice(["text", "markdown"]),
               default="text", help="输出格式 (默认: text)")
+@click.option("--full", "--deliverable", "is_full", is_flag=True,
+              help="生成顾问交付版完整报告（含封面、边界说明、方法学、明细表、附录）")
 def report(year, org_unit, language, unit, start_date, end_date, 
-           output, with_materials, output_format):
+           output, with_materials, output_format, is_full):
     """生成碳盘查报告
     
     生成可发送给客户的盘查摘要，支持按组织单元过滤，
     输出补充材料清单。
+    
+    使用 --full 生成顾问交付版完整报告。
     """
     project_dir = require_project()
     config = ProjectConfig.load(project_dir)
@@ -703,21 +765,50 @@ def report(year, org_unit, language, unit, start_date, end_date,
     if not output:
         report_dir = os.path.join(project_dir, "reports")
         os.makedirs(report_dir, exist_ok=True)
-        filename = reporter.get_default_filename(report_year, org_unit, output_format)
+        if is_full:
+            filename = reporter.get_full_report_filename(report_year, org_unit, output_format)
+        else:
+            filename = reporter.get_default_filename(report_year, org_unit, output_format)
         output = os.path.join(report_dir, filename)
     
     # 生成报告
-    report_text = reporter.generate_summary_report(
-        output_path=output,
-        org_unit=org_unit,
-        start_date=start_dt,
-        end_date=end_dt,
-        output_format=output_format,
-    )
+    if is_full:
+        report_text = reporter.generate_full_report(
+            output_path=output,
+            org_unit=org_unit,
+            start_date=start_dt,
+            end_date=end_dt,
+            output_format=output_format,
+        )
+        report_type_label = "完整报告"
+    else:
+        report_text = reporter.generate_summary_report(
+            output_path=output,
+            org_unit=org_unit,
+            start_date=start_dt,
+            end_date=end_dt,
+            output_format=output_format,
+        )
+        report_type_label = "报告"
     
-    click.echo(f"✓ 报告已生成: {output}")
+    click.echo(f"✓ {report_type_label}已生成: {output}")
     click.echo("")
     click.echo(report_text)
+    
+    # 记录审计日志
+    data_store.add_audit_log(
+        action=AuditAction.REPORT,
+        description=f"生成 {report_year} 年{'完整' if is_full else ''}报告，语言：{report_language}，单位：{report_unit}",
+        details={
+            "year": str(report_year),
+            "language": report_language,
+            "unit": report_unit,
+            "org_unit": org_unit or "all",
+            "output_format": output_format,
+            "output_file": os.path.basename(output),
+            "is_full": str(is_full),
+        }
+    )
 
 
 # ==================== compare 命令 ====================
@@ -923,7 +1014,11 @@ def factors_list(scope, include_custom):
 @factors.command("set")
 @click.argument("factor_key")
 @click.argument("value", type=float)
-def factors_set(factor_key, value):
+@click.option("--source", "-s", help="因子来源（如 IPCC 2021）")
+@click.option("--version", "-v", help="版本号")
+@click.option("--effective-date", help="生效日期 (YYYY-MM-DD)")
+@click.option("--notes", "-n", help="备注说明")
+def factors_set(factor_key, value, source, version, effective_date, notes):
     """设置自定义排放因子
     
     FACTOR_KEY: 因子名称（如 electricity_national, natural_gas, refrigerant_r22）
@@ -931,6 +1026,9 @@ def factors_set(factor_key, value):
     """
     project_dir = require_project()
     config = ProjectConfig.load(project_dir)
+    
+    from .config import CustomFactorConfig
+    from datetime import datetime
     
     # 验证因子名称
     from .emission_factors import (
@@ -945,16 +1043,70 @@ def factors_set(factor_key, value):
     if not config.custom_factors:
         config.custom_factors = {}
     
-    old_value = config.custom_factors.get(factor_key, all_known.get(factor_key, 0))
-    config.custom_factors[factor_key] = value
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    is_new = factor_key not in config.custom_factors
+    
+    if is_new:
+        # 新建
+        old_value = all_known.get(factor_key, 0)
+        config.custom_factors[factor_key] = CustomFactorConfig(
+            value=value,
+            source=source or "",
+            version=version or "v1.0",
+            effective_date=effective_date or "",
+            notes=notes or "",
+            created_at=now,
+            updated_at=now,
+        )
+    else:
+        # 更新
+        old_factor = config.custom_factors[factor_key]
+        old_value = old_factor.value
+        old_factor.value = value
+        old_factor.updated_at = now
+        if source:
+            old_factor.source = source
+        if version:
+            old_factor.version = version
+        if effective_date:
+            old_factor.effective_date = effective_date
+        if notes:
+            old_factor.notes = notes
+    
     config.save(project_dir)
     
     click.echo(f"✓ 已设置排放因子")
     click.echo(f"  因子名称：{factor_key}")
     click.echo(f"  原值：{old_value}")
     click.echo(f"  新值：{value}")
+    
+    cf = config.custom_factors[factor_key]
+    if cf.source:
+        click.echo(f"  来源：{cf.source}")
+    if cf.version:
+        click.echo(f"  版本：{cf.version}")
+    if cf.effective_date:
+        click.echo(f"  生效日期：{cf.effective_date}")
+    if cf.notes:
+        click.echo(f"  备注：{cf.notes}")
+    
     click.echo("")
     click.echo("提示：运行 'carbon-audit calc' 重新计算排放量")
+    
+    # 记录审计日志
+    data_store = DataStore(project_dir)
+    data_store.add_audit_log(
+        action=AuditAction.FACTOR_CHANGE,
+        description=f"设置排放因子 {factor_key}：{old_value} → {value}",
+        details={
+            "factor_key": factor_key,
+            "old_value": str(old_value),
+            "new_value": str(value),
+            "change_type": "set",
+            "source": cf.source or "",
+            "version": cf.version or "",
+        }
+    )
 
 
 @factors.command("reset")
@@ -977,6 +1129,17 @@ def factors_reset(factor_key, reset_all):
         config.custom_factors = {}
         config.save(project_dir)
         click.echo(f"✓ 已重置所有 {count} 个自定义因子")
+        
+        # 记录审计日志
+        data_store = DataStore(project_dir)
+        data_store.add_audit_log(
+            action=AuditAction.FACTOR_CHANGE,
+            description=f"重置所有自定义因子（共 {count} 个）",
+            details={
+                "change_type": "reset_all",
+                "count": str(count),
+            }
+        )
         return
     
     if not factor_key:
@@ -986,9 +1149,22 @@ def factors_reset(factor_key, reset_all):
         click.echo(f"因子 '{factor_key}' 没有自定义值，无需重置")
         return
     
+    old_value = config.custom_factors[factor_key]
     del config.custom_factors[factor_key]
     config.save(project_dir)
     click.echo(f"✓ 已重置因子 '{factor_key}' 为默认值")
+    
+    # 记录审计日志
+    data_store = DataStore(project_dir)
+    data_store.add_audit_log(
+        action=AuditAction.FACTOR_CHANGE,
+        description=f"重置排放因子 {factor_key}：{old_value} → 默认值",
+        details={
+            "factor_key": factor_key,
+            "old_value": str(old_value),
+            "change_type": "reset",
+        }
+    )
 
 
 @factors.command("electricity")
@@ -1018,6 +1194,20 @@ def factors_electricity(region):
     click.echo(f"  新区域：{region} ({new_factor} kgCO2e/kWh)")
     click.echo("")
     click.echo("提示：运行 'carbon-audit calc' 重新计算排放量")
+    
+    # 记录审计日志
+    data_store = DataStore(project_dir)
+    data_store.add_audit_log(
+        action=AuditAction.FACTOR_CHANGE,
+        description=f"切换电力排放因子区域：{old_region} → {region}",
+        details={
+            "change_type": "electricity_region",
+            "old_region": old_region,
+            "new_region": region,
+            "old_factor": str(old_factor),
+            "new_factor": str(new_factor),
+        }
+    )
 
 
 @factors.command("refrigerants")
@@ -1053,6 +1243,95 @@ def factors_refrigerants():
         click.echo("  * 标记为自定义值")
     click.echo("")
     click.echo("提示：使用 'carbon-audit factors set refrigerant_r22 1800' 修改冷媒GWP值")
+
+
+# ==================== audit-log 命令 ====================
+@main.command("audit-log")
+@click.option("--action", "-a", 
+              type=click.Choice(["all", "import", "calc", "report", 
+                                "factor_change", "check", "config_change"]),
+              default="all", help="按操作类型过滤 (默认: all)")
+@click.option("--start-date", type=str, help="开始日期 (YYYY-MM-DD)")
+@click.option("--end-date", type=str, help="结束日期 (YYYY-MM-DD)")
+@click.option("--limit", "-n", type=int, default=50, 
+              help="显示条数 (默认: 50)")
+@click.option("--output", "-O", type=click.Path(), help="导出日志到文件")
+@click.option("--format", "-f", "output_format",
+              type=click.Choice(["text", "json"]),
+              default="text", help="输出格式 (默认: text)")
+def audit_log(action, start_date, end_date, limit, output, output_format):
+    """查看操作审计日志
+    
+    查看数据导入、计算、报告生成、因子变更等操作历史，
+    支持按日期和操作类型过滤。
+    """
+    project_dir = require_project()
+    data_store = DataStore(project_dir)
+    
+    # 解析 action 参数
+    action_filter = None
+    if action != "all":
+        action_filter = AuditAction(action)
+    
+    # 获取日志
+    logs = data_store.get_audit_log(
+        action=action_filter,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit,
+    )
+    
+    # 输出
+    if output_format == "json":
+        import json
+        output_text = json.dumps(logs, ensure_ascii=False, indent=2)
+    else:
+        output_text = _format_audit_log_text(logs)
+    
+    # 保存或打印
+    if output:
+        output_dir = os.path.dirname(os.path.abspath(output))
+        os.makedirs(output_dir, exist_ok=True)
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(output_text)
+        click.echo(f"✓ 审计日志已导出到: {output}")
+    else:
+        click.echo(output_text)
+        click.echo("")
+        click.echo(f"共显示 {len(logs)} 条记录")
+
+
+def _format_audit_log_text(logs: list) -> str:
+    """格式化审计日志为文本"""
+    if not logs:
+        return "暂无审计日志记录"
+    
+    lines = []
+    lines.append("=" * 70)
+    lines.append("  操作审计日志")
+    lines.append("=" * 70)
+    lines.append("")
+    
+    for i, log in enumerate(logs):
+        action_enum = AuditAction(log["action"])
+        action_label = action_enum.label_zh
+        
+        lines.append(f"[{log['timestamp']}] {action_label}")
+        lines.append(f"  {log['description']}")
+        
+        if log.get("details"):
+            detail_lines = []
+            for k, v in log["details"].items():
+                detail_lines.append(f"{k}: {v}")
+            lines.append(f"  详情：{', '.join(detail_lines)}")
+        
+        if log.get("user"):
+            lines.append(f"  操作人：{log['user']}")
+        
+        if i < len(logs) - 1:
+            lines.append("")
+    
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

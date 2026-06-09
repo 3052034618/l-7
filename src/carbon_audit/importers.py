@@ -31,6 +31,8 @@ class DataImporter:
                 line_number=0,
                 error_type="format_error",
                 message=f"不支持的文件格式: {ext}",
+                org_unit=org_unit,
+                category=self.category.value,
             )
             return [], [error]
     
@@ -78,6 +80,8 @@ class DataImporter:
                 line_number=1,
                 error_type="missing_column",
                 message=f"缺少必需列: {', '.join(missing_cols)}",
+                org_unit=org_unit,
+                category=self.category.value,
             )
             errors.append(error)
             return records, errors
@@ -96,6 +100,8 @@ class DataImporter:
                     line_number=line_num,
                     error_type="parse_error",
                     message=str(e),
+                    org_unit=org_unit,
+                    category=self.category.value,
                 )
                 errors.append(error)
         
